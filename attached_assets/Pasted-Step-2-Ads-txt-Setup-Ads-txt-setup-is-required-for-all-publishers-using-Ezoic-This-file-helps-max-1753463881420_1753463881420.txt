@@ -1,0 +1,54 @@
+Step 2: Ads.txt Setup
+Ads.txt setup is required for all publishers using Ezoic. This file helps maximize your ad revenue by ensuring authorized ad partners can bid on your inventory.
+
+What is Ads.txt? 🔗
+Ads.txt is a simple text file that tells advertisers which companies are authorized to sell ads on your website. Think of it as a "verified seller" list that prevents unauthorized companies from selling fake ad space on your domain.
+
+Choose Your Setup Method 🔗
+Select the method that best fits your website setup:
+
+Important: Replace [YOUR_DOMAIN].com with your actual domain name in all code examples below.
+1. WordPress Sites (Recommended) 🔗
+Easiest option for WordPress users:
+
+Install the Ezoic Integration Plugin from your WordPress admin dashboard
+Activate the plugin and navigate to its settings
+Enable the ads.txt management feature
+The plugin handles everything automatically
+The Ezoic WordPress plugin automatically manages your ads.txt file and keeps it updated. No technical setup required!
+2. Server Redirects 🔗
+For users with server access:
+
+Apache (.htaccess):
+
+Redirect 301 /ads.txt https://srv.adstxtmanager.com/19390/[YOUR_DOMAIN].com
+apache
+Nginx:
+
+server {
+    location ~ /ads.txt {
+        return 301 https://srv.adstxtmanager.com/19390/[YOUR_DOMAIN].com;
+    }
+}
+nginx
+PHP:
+
+<?php
+header('Location: https://srv.adstxtmanager.com/19390/[YOUR_DOMAIN].com');
+exit;
+?>
+php
+3. Automated Updates (Advanced) 🔗
+For automatic daily updates:
+
+curl -L https://srv.adstxtmanager.com/19390/[YOUR_DOMAIN].com > ads.txt
+bash
+Set up a daily cron job to run this command automatically and keep your ads.txt file current.
+Test Your Setup 🔗
+Visit yourdomain.com/ads.txt in your browser
+Verify you see a list of authorized ad sellers
+Clear your website cache if the file doesn't appear immediately
+Complete! 🔗
+Once your ads.txt file is working correctly, you've successfully completed Step 2. Your website is now properly configured to work with Ezoic's advertising partners, helping maximize your ad revenue.
+
+Ready for the final step? Continue to Step 3: Ad Placements to start displaying ads on your website.

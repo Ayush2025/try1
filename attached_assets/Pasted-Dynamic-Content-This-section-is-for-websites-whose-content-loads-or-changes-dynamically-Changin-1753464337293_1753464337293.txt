@@ -1,0 +1,87 @@
+Dynamic Content
+This section is for websites whose content loads or changes dynamically.
+
+Changing Pages 🔗
+When switching between pageviews dynamically, it is important to re-call
+
+ezstandalone.showAds();
+javascript
+ezstandalone.showAds() calling this function following a change with to the URL will force ads to refresh on the new page.
+
+New Content 🔗
+For additional placeholders within the same pageview, you can use the ezstandalone.showAds function.
+
+If a user scrolls down the page, new content loads, and placeholders 104 and 105 are added, ezstandalone.showAds should be used to display them.
+
+<script>
+    ezstandalone.cmd.push(function () {
+        // call new placeholders
+        ezstandalone.showAds(104, 105);
+    });
+</script>
+html
+Changing content 🔗
+If the content changes within the same pageview and a placeholder is no longer needed or visible, the placeholder needs to be properly cleaned up using ezstandalone.destroyPlaceholders. This allows the placeholder to be loaded again via ezstandalone.showAds if necessary.
+
+<script>
+    window.ezstandalone.cmd.push(function () {
+        // destroy placeholders
+        ezstandalone.destroyPlaceholders(104, 105);
+    });
+</script>
+html
+Infinite Scroll 🔗
+For sites which implement an infinite scroll, a combination of calling ezstandalone.destroyPlaceholders followed by ezstandalone.showAds may be necessary to reuse placeholders if within the same pageview.
+
+It is recommended to create a set of in-content placeholders specifically for infinite scroll.
+Example 🔗
+The example below shows the flow of an infinite scroll would look like on a site with multiple articles.
+
+Start off by calling the placeholder for the first article on page load.
+
+<script>
+    window.ezstandalone = window.ezstandalone || {};
+    ezstandalone.cmd = ezstandalone.cmd || [];
+    ezstandalone.cmd.push(function () {
+        ezstandalone.showAds(102, 103, 104);
+    });
+</script>
+html
+User then scrolls to the next article, so the next set of ads are loaded.
+
+<script>
+    window.ezstandalone.cmd.push(function () {
+        // call new placeholders
+        ezstandalone.showAds(105, 106);
+    });
+</script>
+html
+User then scrolls to the third article, and the placeholders from the first article need to be reused.
+
+<script>
+    window.ezstandalone.cmd.push(function () {
+        // destroy initial placeholders
+        ezstandalone.destroyPlaceholders(102, 103, 104);
+        // call new placeholders
+        ezstandalone.showAds(102, 103, 104);
+    });
+</script>
+html
+If you would like to reuse placeholder IDs, the initial placeholders should be removed from the page. Having multiple instances of the same placeholder ID on a page will cause unpredictable ad behaviour.
+Removing all placeholders 🔗
+Remove all placeholders on the page by using the destroyAll function
+
+<script>
+    window.ezstandalone.cmd.push(function () {
+        ezstandalone.destroyAll();
+    });
+</script>
+html
+Show all placeholders 🔗
+You can call ads in every placeholder on a given page by using the showAds function, without defining any value.
+
+<script>
+    window.ezstandalone.cmd.push(function () {
+        ezstandalone.showAds();
+    });
+</script>

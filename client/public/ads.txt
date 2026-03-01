@@ -1,0 +1,12 @@
+# Ads.txt file for BrainMate AI (brainmate.online)
+# This file authorizes advertising partners to sell ads on this domain
+
+# Google AdSense - Official entry from AdSense dashboard
+google.com, pub-4123359769480087, DIRECT, f08c47fec0942fa0
+
+# Monetag
+# Note: Add Monetag publisher ID when available from your Monetag dashboard
+
+# Ezoic
+# Note: Complete this redirect URL once you have your Ezoic account setup
+# Redirect to: https://srv.adstxtmanager.com/19390/brainmate.online

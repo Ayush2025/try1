@@ -1,0 +1,43 @@
+Step 1: Site Integration
+WordPress Users: If you're using WordPress, you can simplify this integration process by using our WordPress Plugin. The plugin handles all the setup steps automatically. Learn more about the Ezoic WordPress Plugin integration guide.
+Ezoic's JavaScript integration provides a flexible, client-side solution for displaying ads on your website. This integration method gives you full control over ad execution and is compatible with all website builds and content management systems.
+
+The integration process involves two main components:
+
+Header Scripts - Essential JavaScript files that initialize the Ezoic ad system
+Ad Placement Code - JavaScript snippets that define where ads will appear on your pages
+This approach ensures optimal ad performance while maintaining your website's functionality and user experience.
+
+Add Header Scripts 🔗
+Add the Ezoic Privacy Scripts and Header Script at the very top of the <head> tag. Please ensure you load the privacy scripts before the header script.
+
+Privacy Scripts 🔗
+The privacy scripts handle user consent management and must be loaded first to ensure compliance with privacy regulations:
+
+<script src="https://cmp.gatekeeperconsent.com/min.js" data-cfasync="false"></script>
+<script src="https://the.gatekeeperconsent.com/cmp.min.js" data-cfasync="false"></script>
+html
+The data-cfasync="false" attribute prevents Cloudflare from optimizing these scripts, ensuring they load in the correct order for privacy compliance.
+Header Script 🔗
+The main Ezoic header script initializes the ad system on your website:
+
+<script async src="//www.ezojs.com/ezoic/sa.min.js"></script>
+<script>
+    window.ezstandalone = window.ezstandalone || {};
+    ezstandalone.cmd = ezstandalone.cmd || [];
+</script>
+html
+Script Placement Guidelines 🔗
+For quicker ad setup and delivery, we recommend inserting these header scripts within the <head> tag. If placing them in the head is not feasible, the next best option is to position them at the very top of the <body> tag.
+Best Practices:
+
+Load privacy scripts before the header script
+Place all scripts as high as possible in the <head> section
+Avoid loading scripts conditionally or after page load
+Ensure scripts are not blocked by ad blockers or CSP policies
+Verification 🔗
+Once you have completed adding these header scripts to your website, you have successfully completed the first step of EzoicAds integration.
+
+To verify everything is working correctly, visit your website and ensure it loads normally without any broken functionality. If you encounter any issues or need assistance, please reach out to Ezoic's support team.
+
+You're now ready to proceed to the next step: setting up your ads.txt file.

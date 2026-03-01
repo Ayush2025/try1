@@ -1,0 +1,44 @@
+Troubleshooting
+When setting up EzoicAds on your site, it's important to ensure that everything is functioning properly. We provide a built-in JavaScript Integration Debugger that allows you to quickly diagnose issues with your ad setup. Below is a step-by-step guide on how to use this debugger and interpret its outputs.
+
+Step 1: Trigger the Debugger 🔗
+To activate the debugger, simply append the following query parameter to the URL of the page where your EzoicAds are integrated:
+
+ez_js_debugger=1
+not set
+For example:
+
+https://www.yourwebsite.com?ez_js_debugger=1
+not set
+Once the query parameter is added and the page loads, a green modal dialog will appear at the bottom center of the screen. This is the JavaScript Integration Debugger.
+
+Step 2: Understanding the Debugger Output 🔗
+The debugger modal contains several key pieces of information that will help you troubleshoot your setup. Here’s a breakdown of the information provided:
+
+Script In Page <head> Element: The debugger verifies the presence of the Ezoic integration script (sa.min.js) in the page's <head> element. This ensures the script is optimally positioned for effective page loading.
+
+Consent: This section checks for the use of Ezoic consent management tools, including an API call or the presence of the Consent Management Platform (CMP) script on the page. These checks ensure that user privacy is managed in compliance with regulations. For more information on privacy management, see the Privacy Documentation.
+
+The CMP script checks include verifying its presence on the page, its placement within the page's <head> element, and ensuring it appears before Ezoic's integration script (sa.min.js) in the HTML structure.
+Ad Request: The debugger tracks whether an ad request to Ezoic's servers is successfully sent and provides key details, such as the word count and the maximum number of allowed ads.
+
+This section includes a word count consistency check to ensure ad requests are not sent too early—before the primary page content has fully loaded. Maintaining a consistent word count helps verify that dynamic content remains stable, ensuring accurate ad rendering.
+Defined Placeholders: This section provides detailed information about the ad placeholder ids used in the last network request to Ezoic.
+
+For each ID, the debugger displays the corresponding HTML element on the page, whether the ID was selected for ad insertion, and its associated ad unit name and size.
+Unused Placeholders: This section lists the IDs of ad placeholders that are present in the page's HTML but were not included in the most recent network request to Ezoic.
+
+API Methods Called: The debugger displays each method invoked on the ezstandalone API, displaying them in the order of execution along with their provided arguments. This detailed tracking helps identify potential implementation issues.
+
+Step 3: Using the Debugger for Troubleshooting 🔗
+The information provided in the debugger modal is invaluable for diagnosing common issues such as:
+
+Ads Not Displaying: Check the placeholder detection and ad status to ensure placeholders are defined and ads are assigned.
+
+Ad Requests Failing: If ad requests aren't being sent or are failing, the debugger will provide error messages that point to potential misconfigurations.
+
+Script Loading Issues: If the script isn’t properly loaded, verify that the script tag is present in your source code and correctly configured.
+
+Conclusion 🔗
+The EzoicAds JavaScript Integration Debugger is a simple but powerful tool to help you ensure that your ad setup is functioning as intended. By following these steps, you can quickly identify and resolve common issues, ensuring that your ads display properly and without disruption.
+

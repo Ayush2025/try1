@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BrainMate AI - Intelligent Tutoring Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366F1',
+                        secondary: '#8B5CF6',
+                        accent: '#06B6D4',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        error: '#EF4444'
+                    },
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif']
+                    },
+                    animation: {
+                        'float': 'float 3s ease-in-out infinite',
+                        'pulse-slow': 'pulse 3s ease-in-out infinite',
+                        'bounce-subtle': 'bounce 2s infinite'
+                    }
+                }
+            }
+        };
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #06B6D4 100%);
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .dark-mode {
+            background: #0F172A;
+            color: #F8FAFC;
+        }
+        
+        .chat-bubble {
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .typing-indicator {
+            display: inline-block;
+            animation: typing 1.4s infinite;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.4; }
+            30% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="font-inter bg-gray-50 transition-colors duration-300" id="body">
+    
+    <!-- Navigation -->
+    <!-- @COMPONENT: Navigation [responsive navbar with auth state] -->
+    <nav class="bg-white/95 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50 transition-colors duration-300" id="navbar">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-gradient-to-r from-primary to-secondary rounded-xl flex items-center justify-center">
+                            <i class="fas fa-brain text-white text-lg"></i>
+                        </div>
+                        <span class="text-xl font-bold text-gray-900" data-bind="app.name">BrainMate AI</span>
+                    </div>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-8">
+                    <a href="#features" class="text-gray-600 hover:text-primary transition-colors">Features</a>
+                    <a href="#pricing" class="text-gray-600 hover:text-primary transition-colors">Pricing</a>
+                    <a href="#about" class="text-gray-600 hover:text-primary transition-colors">About</a>
+                    <button id="theme-toggle" class="p-2 rounded-lg hover:bg-gray-100 transition-colors">
+                        <i class="fas fa-moon text-gray-600"></i>
+                    </button>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <button class="text-gray-600 hover:text-primary transition-colors hidden md:block" data-event="click:showLogin">
+                        Sign In
+                    </button>
+                    <button class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors" data-event="click:showSignup">
+                        Get Started
+                    </button>
+                    <button class="md:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors" id="mobile-menu-toggle">
+                        <i class="fas fa-bars text-gray-600"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div class="md:hidden border-t border-gray-200 bg-white hidden" id="mobile-menu">
+            <div class="px-4 py-3 space-y-3">
+                <a href="#features" class="block text-gray-600 hover:text-primary">Features</a>
+                <a href="#pricing" class="block text-gray-600 hover:text-primary">Pricing</a>
+                <a href="#about" class="block text-gray-600 hover:text-primary">About</a>
+                <button class="block w-full text-left text-gray-600 hover:text-primary" data-event="click:showLogin">Sign In</button>
+            </div>
+        </div>
+    </nav>
+    <!-- @END_COMPONENT: Navigation -->
+
+    <!-- Landing Page -->
+    <div id="landing-page">
+        <!-- Hero Section -->
+        <!-- @COMPONENT: HeroSection [main landing area with CTA] -->
+        <section class="relative overflow-hidden bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5 py-20">
+            <div class="absolute inset-0 bg-grid-gray-900/[0.04] bg-[size:20px_20px]"></div>
+            <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center">
+                    <h1 class="text-5xl md:text-7xl font-bold text-gray-900 mb-6 leading-tight">
+                        Create
+                        <span class="bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent">
+                            AI Tutors
+                        </span>
+                        <br>from Your Content
+                    </h1>
+                    <p class="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
+                        Transform your teaching materials into intelligent, interactive AI tutors with 3D avatars, 
+                        voice synthesis, and personalized learning experiences.
+                    </p>
+                    
+                    <div class="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+                        <button class="bg-primary text-white px-8 py-4 rounded-xl font-semibold text-lg hover:bg-primary/90 transform hover:scale-105 transition-all duration-200 shadow-lg" data-event="click:startTrial">
+                            Start Free Trial
+                        </button>
+                        <button class="border-2 border-primary text-primary px-8 py-4 rounded-xl font-semibold text-lg hover:bg-primary hover:text-white transition-all duration-200" data-event="click:viewDemo">
+                            <i class="fas fa-play mr-2"></i>
+                            Watch Demo
+                        </button>
+                    </div>
+                    
+                    <!-- Demo Video/Image Placeholder -->
+                    <!-- A modern laptop displaying the BrainMate AI dashboard with colorful interface -->
+                    <div class="relative max-w-4xl mx-auto">
+                        <div class="relative rounded-2xl overflow-hidden shadow-2xl animate-float">
+                            <img src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&auto=format&fit=crop&w=1200&h=675" 
+                                 alt="BrainMate AI Dashboard" 
+                                 class="w-full h-auto" />
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent"></div>
+                            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                                <button class="w-20 h-20 bg-white/90 rounded-full flex items-center justify-center hover:scale-110 transition-transform shadow-lg" data-event="click:playDemo">
+                                    <i class="fas fa-play text-primary text-2xl ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- @END_COMPONENT: HeroSection -->
+
+        <!-- Features Section -->
+        <!-- @COMPONENT: FeaturesSection [showcase of key platform capabilities] -->
+        <section id="features" class="py-20 bg-white">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-bold text-gray-900 mb-4">Powerful Features</h2>
+                    <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                        Everything you need to create engaging, intelligent tutoring experiences
+                    </p>
+                </div>
+                
+                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    <!-- Feature 1: AI Tutor Creation -->
+                    <div class="bg-gradient-to-br from-primary/5 to-primary/10 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-2">
+                        <div class="w-16 h-16 bg-primary/10 rounded-xl flex items-center justify-center mb-6">
+                            <i class="fas fa-robot text-primary text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">AI Tutor Creation</h3>
+                        <p class="text-gray-600 mb-4">
+                            Upload PDFs, documents, or videos and instantly create intelligent tutors trained on your content.
+                        </p>
+                        <ul class="text-sm text-gray-500 space-y-2">
+                            <li><i class="fas fa-check text-success mr-2"></i>Multiple file format support</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Instant AI training</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Content-aware responses</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Feature 2: 3D Avatars -->
+                    <div class="bg-gradient-to-br from-secondary/5 to-secondary/10 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-2">
+                        <div class="w-16 h-16 bg-secondary/10 rounded-xl flex items-center justify-center mb-6">
+                            <i class="fas fa-user-astronaut text-secondary text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">3D Animated Avatars</h3>
+                        <p class="text-gray-600 mb-4">
+                            Lifelike avatars with lip-sync, emotions, and customizable appearances for immersive learning.
+                        </p>
+                        <ul class="text-sm text-gray-500 space-y-2">
+                            <li><i class="fas fa-check text-success mr-2"></i>Real-time lip synchronization</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Emotional expressions</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Customizable appearance</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Feature 3: Interactive Learning -->
+                    <div class="bg-gradient-to-br from-accent/5 to-accent/10 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-2">
+                        <div class="w-16 h-16 bg-accent/10 rounded-xl flex items-center justify-center mb-6">
+                            <i class="fas fa-comments text-accent text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">Interactive Learning</h3>
+                        <p class="text-gray-600 mb-4">
+                            Students engage through natural conversations with voice input and detailed explanations.
+                        </p>
+                        <ul class="text-sm text-gray-500 space-y-2">
+                            <li><i class="fas fa-check text-success mr-2"></i>Voice interaction</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Adaptive explanations</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Multiple learning modes</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Feature 4: Analytics Dashboard -->
+                    <div class="bg-gradient-to-br from-success/5 to-success/10 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-2">
+                        <div class="w-16 h-16 bg-success/10 rounded-xl flex items-center justify-center mb-6">
+                            <i class="fas fa-chart-line text-success text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">Advanced Analytics</h3>
+                        <p class="text-gray-600 mb-4">
+                            Track student engagement, popular questions, and learning progress with detailed insights.
+                        </p>
+                        <ul class="text-sm text-gray-500 space-y-2">
+                            <li><i class="fas fa-check text-success mr-2"></i>Engagement metrics</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Learning progress tracking</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Usage analytics</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Feature 5: Flexible Sharing -->
+                    <div class="bg-gradient-to-br from-warning/5 to-warning/10 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-2">
+                        <div class="w-16 h-16 bg-warning/10 rounded-xl flex items-center justify-center mb-6">
+                            <i class="fas fa-share-alt text-warning text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">Easy Sharing</h3>
+                        <p class="text-gray-600 mb-4">
+                            Share tutors via links with customizable access controls and no signup requirements for students.
+                        </p>
+                        <ul class="text-sm text-gray-500 space-y-2">
+                            <li><i class="fas fa-check text-success mr-2"></i>Public/private access</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Password protection</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>No student signup needed</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Feature 6: Multi-Modal Teaching -->
+                    <div class="bg-gradient-to-br from-error/5 to-error/10 p-8 rounded-2xl hover:shadow-lg transition-all duration-300 transform hover:-translate-y-2">
+                        <div class="w-16 h-16 bg-error/10 rounded-xl flex items-center justify-center mb-6">
+                            <i class="fas fa-graduation-cap text-error text-2xl"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">Teaching Modes</h3>
+                        <p class="text-gray-600 mb-4">
+                            Multiple teaching approaches including lectures, flashcards, quizzes, and interactive examples.
+                        </p>
+                        <ul class="text-sm text-gray-500 space-y-2">
+                            <li><i class="fas fa-check text-success mr-2"></i>Lecture mode</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Auto-generated flashcards</li>
+                            <li><i class="fas fa-check text-success mr-2"></i>Quiz generation</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- @END_COMPONENT: FeaturesSection -->
+
+        <!-- Pricing Section -->
+        <!-- @COMPONENT: PricingSection [subscription plans and payment] -->
+        <section id="pricing" class="py-20 bg-gray-50">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center mb-16">
+                    <h2 class="text-4xl font-bold text-gray-900 mb-4">Simple, Transparent Pricing</h2>
+                    <p class="text-xl text-gray-600 max-w-3xl mx-auto">
+                        Choose the plan that fits your teaching needs
+                    </p>
+                </div>
+                
+                <div class="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                    <!-- Free Plan -->
+                    <div class="bg-white p-8 rounded-2xl shadow-lg border-2 border-gray-200 hover:border-primary/30 transition-all duration-300">
+                        <div class="text-center mb-8">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Free</h3>
+                            <div class="text-4xl font-bold text-gray-900 mb-4">₹0<span class="text-lg text-gray-500">/month</span></div>
+                            <p class="text-gray-600">Perfect for trying out the platform</p>
+                        </div>
+                        
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>1 AI Tutor</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Basic chat interface</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>PDF/text upload</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Public sharing</li>
+                            <li class="flex items-center"><i class="fas fa-times text-gray-300 mr-3"></i>3D avatars</li>
+                            <li class="flex items-center"><i class="fas fa-times text-gray-300 mr-3"></i>Voice synthesis</li>
+                            <li class="flex items-center"><i class="fas fa-times text-gray-300 mr-3"></i>Analytics</li>
+                        </ul>
+                        
+                        <button class="w-full bg-gray-100 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-200 transition-colors" data-event="click:selectPlan" data-plan="free">
+                            Get Started Free
+                        </button>
+                    </div>
+                    
+                    <!-- Pro Plan -->
+                    <div class="bg-white p-8 rounded-2xl shadow-xl border-2 border-primary relative transform scale-105">
+                        <div class="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                            <span class="bg-primary text-white px-4 py-1 rounded-full text-sm font-semibold">Most Popular</span>
+                        </div>
+                        
+                        <div class="text-center mb-8">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Pro</h3>
+                            <div class="text-4xl font-bold text-gray-900 mb-4">₹499<span class="text-lg text-gray-500">/month</span></div>
+                            <p class="text-gray-600">For serious educators</p>
+                        </div>
+                        
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>5 AI Tutors</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>3D animated avatars</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Voice synthesis</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Advanced analytics</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Custom branding</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Priority support</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>All file formats</li>
+                        </ul>
+                        
+                        <button class="w-full bg-primary text-white py-3 rounded-xl font-semibold hover:bg-primary/90 transition-colors" data-event="click:selectPlan" data-plan="pro">
+                            Start Pro Trial
+                        </button>
+                    </div>
+                    
+                    <!-- Premium Plan -->
+                    <div class="bg-white p-8 rounded-2xl shadow-lg border-2 border-gray-200 hover:border-primary/30 transition-all duration-300">
+                        <div class="text-center mb-8">
+                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Premium</h3>
+                            <div class="text-4xl font-bold text-gray-900 mb-4">₹1499<span class="text-lg text-gray-500">/month</span></div>
+                            <p class="text-gray-600">For institutions and teams</p>
+                        </div>
+                        
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Unlimited AI Tutors</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Advanced 3D avatars</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Voice branding</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Flashcard generation</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>Background music</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>White-label option</li>
+                            <li class="flex items-center"><i class="fas fa-check text-success mr-3"></i>24/7 support</li>
+                        </ul>
+                        
+                        <button class="w-full bg-secondary text-white py-3 rounded-xl font-semibold hover:bg-secondary/90 transition-colors" data-event="click:selectPlan" data-plan="premium">
+                            Contact Sales
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- @END_COMPONENT: PricingSection -->
+    </div>
+
+    <!-- Educator Dashboard -->
+    <!-- @COMPONENT: EducatorDashboard [main dashboard for content creators] -->
+    <div id="educator-dashboard" class="min-h-screen bg-gray-50 hidden">
+        <!-- Dashboard Header -->
+        <header class="bg-white shadow-sm border-b border-gray-200">
+            <div class="flex justify-between items-center px-6 py-4">
+                <div class="flex items-center space-x-4">
+                    <div class="w-8 h-8 bg-gradient-to-r from-primary to-secondary rounded-lg flex items-center justify-center">
+                        <i class="fas fa-brain text-white text-sm"></i>
+                    </div>
+                    <h1 class="text-xl font-semibold text-gray-900">BrainMate AI Dashboard</h1>
+                </div>
+                
+                <div class="flex items-center space-x-4">
+                    <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors" id="theme-toggle-dashboard">
+                        <i class="fas fa-moon text-gray-600"></i>
+                    </button>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-sm text-gray-600" data-bind="user.name">Sarah Johnson</span>
+                        <div class="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
+                            <i class="fas fa-user text-white text-sm"></i>
+                        </div>
+                    </div>
+                    <button class="text-gray-600 hover:text-gray-900 transition-colors" data-event="click:logout">
+                        <i class="fas fa-sign-out-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <div class="flex h-screen pt-16">
+            <!-- Sidebar -->
+            <aside class="w-64 bg-white shadow-sm border-r border-gray-200 fixed h-full overflow-y-auto">
+                <nav class="p-6">
+                    <ul class="space-y-2">
+                        <li>
+                            <a href="#" class="flex items-center space-x-3 px-4 py-3 text-primary bg-primary/10 rounded-lg font-medium" data-tab="overview">
+                                <i class="fas fa-home"></i>
+                                <span>Overview</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center space-x-3 px-4 py-3 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors" data-tab="tutors">
+                                <i class="fas fa-robot"></i>
+                                <span>My Tutors</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center space-x-3 px-4 py-3 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors" data-tab="analytics">
+                                <i class="fas fa-chart-bar"></i>
+                                <span>Analytics</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center space-x-3 px-4 py-3 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors" data-tab="content">
+                                <i class="fas fa-upload"></i>
+                                <span>Upload Content</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#" class="flex items-center space-x-3 px-4 py-3 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors" data-tab="settings">
+                                <i class="fas fa-cog"></i>
+                                <span>Settings</span>
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="ml-64 flex-1 p-6 overflow-y-auto">
+                <!-- Overview Tab -->
+                <div id="tab-overview" class="tab-content">
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">Total Tutors</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.totalTutors">3</p>
+                                </div>
+                                <div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-robot text-primary"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">Active Students</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.activeStudents">47</p>
+                                </div>
+                                <div class="w-12 h-12 bg-success/10 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-users text-success"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">Total Sessions</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.totalSessions">156</p>
+                                </div>
+                                <div class="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-comments text-accent"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm text-gray-600">Avg. Session Time</p>
+                                    <p class="text-2xl font-bold text-gray-900" data-bind="stats.avgSessionTime">12m</p>
+                                </div>
+                                <div class="w-12 h-12 bg-warning/10 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-clock text-warning"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
+                        <div class="space-y-4">
+                            <!-- @MAP: recentActivity.map(activity => ( -->
+                            <div class="flex items-center space-x-4 p-4 hover:bg-gray-50 rounded-lg transition-colors">
+                                <div class="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user-graduate text-primary text-sm"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-gray-900" data-mock="true">Student asked about calculus derivatives</p>
+                                    <p class="text-xs text-gray-500" data-mock="true">Math Tutor • 2 minutes ago</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center space-x-4 p-4 hover:bg-gray-50 rounded-lg transition-colors">
+                                <div class="w-10 h-10 bg-success/10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-plus text-success text-sm"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-gray-900" data-mock="true">New tutor created: Physics 101</p>
+                                    <p class="text-xs text-gray-500" data-mock="true">1 hour ago</p>
+                                </div>
+                            </div>
+                            
+                            <div class="flex items-center space-x-4 p-4 hover:bg-gray-50 rounded-lg transition-colors">
+                                <div class="w-10 h-10 bg-accent/10 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-share text-accent text-sm"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="text-sm font-medium text-gray-900" data-mock="true">Chemistry Tutor shared with 15 students</p>
+                                    <p class="text-xs text-gray-500" data-mock="true">3 hours ago</p>
+                                </div>
+                            </div>
+                            <!-- @END_MAP )) -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- My Tutors Tab -->
+                <div id="tab-tutors" class="tab-content hidden">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900">My Tutors</h2>
+                        <button class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors" data-event="click:createTutor">
+                            <i class="fas fa-plus mr-2"></i>
+                            Create New Tutor
+                        </button>
+                    </div>
+                    
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- @MAP: tutors.map(tutor => ( -->
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-calculator text-white"></i>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="text-gray-400 hover:text-primary transition-colors" data-event="click:editTutor">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="text-gray-400 hover:text-error transition-colors" data-event="click:deleteTutor">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2" data-bind="tutor.name" data-mock="true">Math Tutor</h3>
+                            <p class="text-sm text-gray-600 mb-4" data-bind="tutor.description" data-mock="true">Advanced calculus and algebra concepts</p>
+                            
+                            <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
+                                <span data-bind="tutor.students" data-mock="true">23 students</span>
+                                <span data-bind="tutor.lastActive" data-mock="true">2 hours ago</span>
+                            </div>
+                            
+                            <div class="flex space-x-2">
+                                <button class="flex-1 bg-primary text-white py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors" data-event="click:viewTutor">
+                                    View Chat
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors" data-event="click:shareTutor">
+                                    <i class="fas fa-share"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-gradient-to-r from-success to-accent rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-flask text-white"></i>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="text-gray-400 hover:text-primary transition-colors">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="text-gray-400 hover:text-error transition-colors">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2" data-mock="true">Chemistry Tutor</h3>
+                            <p class="text-sm text-gray-600 mb-4" data-mock="true">Organic and inorganic chemistry fundamentals</p>
+                            
+                            <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
+                                <span data-mock="true">15 students</span>
+                                <span data-mock="true">1 day ago</span>
+                            </div>
+                            
+                            <div class="flex space-x-2">
+                                <button class="flex-1 bg-primary text-white py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors">
+                                    View Chat
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                                    <i class="fas fa-share"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-4">
+                                <div class="w-12 h-12 bg-gradient-to-r from-secondary to-error rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-atom text-white"></i>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button class="text-gray-400 hover:text-primary transition-colors">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="text-gray-400 hover:text-error transition-colors">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2" data-mock="true">Physics Tutor</h3>
+                            <p class="text-sm text-gray-600 mb-4" data-mock="true">Mechanics, thermodynamics, and quantum physics</p>
+                            
+                            <div class="flex items-center justify-between text-sm text-gray-500 mb-4">
+                                <span data-mock="true">9 students</span>
+                                <span data-mock="true">3 hours ago</span>
+                            </div>
+                            
+                            <div class="flex space-x-2">
+                                <button class="flex-1 bg-primary text-white py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors">
+                                    View Chat
+                                </button>
+                                <button class="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+                                    <i class="fas fa-share"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                    </div>
+                </div>
+
+                <!-- Upload Content Tab -->
+                <div id="tab-content" class="tab-content hidden">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6">Upload Content</h2>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-8">
+                        <div class="max-w-2xl mx-auto">
+                            <div class="text-center mb-8">
+                                <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-cloud-upload-alt text-primary text-2xl"></i>
+                                </div>
+                                <h3 class="text-xl font-semibold text-gray-900 mb-2">Create New AI Tutor</h3>
+                                <p class="text-gray-600">Upload your teaching materials to train a custom AI tutor</p>
+                            </div>
+                            
+                            <form class="space-y-6" data-implementation="Handle file upload and tutor creation">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Tutor Name</label>
+                                    <input type="text" placeholder="e.g., Advanced Calculus Tutor" 
+                                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                                    <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors">
+                                        <option>Mathematics</option>
+                                        <option>Physics</option>
+                                        <option>Chemistry</option>
+                                        <option>Biology</option>
+                                        <option>Computer Science</option>
+                                        <option>Other</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                                    <textarea placeholder="Brief description of what this tutor will teach..." 
+                                              rows="3" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"></textarea>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-4">Upload Content</label>
+                                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors" data-implementation="Implement drag-and-drop file upload">
+                                        <i class="fas fa-file-upload text-4xl text-gray-400 mb-4"></i>
+                                        <p class="text-lg text-gray-600 mb-2">Drag and drop your files here</p>
+                                        <p class="text-sm text-gray-500 mb-4">or click to browse</p>
+                                        <p class="text-xs text-gray-400">Supports PDF, DOCX, PPT, TXT, YouTube links</p>
+                                        <input type="file" multiple class="hidden" accept=".pdf,.docx,.pptx,.txt">
+                                        <button type="button" class="mt-4 bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors">
+                                            Browse Files
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex space-x-4">
+                                    <button type="submit" class="flex-1 bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors" data-event="click:createTutor">
+                                        Create AI Tutor
+                                    </button>
+                                    <button type="button" class="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+                                        Cancel
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: EducatorDashboard -->
+
+    <!-- Student Chat Interface -->
+    <!-- @COMPONENT: StudentChatInterface [main chat experience for students] -->
+    <div id="student-chat" class="min-h-screen bg-gray-50 hidden">
+        <div class="flex h-screen">
+            <!-- Chat Area -->
+            <div class="flex-1 flex flex-col">
+                <!-- Chat Header -->
+                <header class="bg-white border-b border-gray-200 p-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="w-12 h-12 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center">
+                                <i class="fas fa-calculator text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h1 class="text-xl font-semibold text-gray-900" data-bind="tutor.name" data-mock="true">Math Tutor</h1>
+                                <p class="text-sm text-gray-500" data-bind="tutor.status" data-mock="true">Ready to help • Advanced Calculus</p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-4">
+                            <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Voice Input" data-event="click:toggleVoiceInput">
+                                <i class="fas fa-microphone text-gray-600"></i>
+                            </button>
+                            <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Export Notes" data-event="click:exportNotes">
+                                <i class="fas fa-download text-gray-600"></i>
+                            </button>
+                            <button class="p-2 rounded-lg hover:bg-gray-100 transition-colors" id="theme-toggle-chat">
+                                <i class="fas fa-moon text-gray-600"></i>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Chat Messages -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-4" id="chat-messages">
+                    <!-- Welcome Message -->
+                    <div class="flex items-start space-x-4 chat-bubble">
+                        <div class="w-10 h-10 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-robot text-white text-sm"></i>
+                        </div>
+                        <div class="bg-white rounded-2xl rounded-tl-sm p-4 shadow-sm max-w-md">
+                            <p class="text-gray-900" data-mock="true">
+                                Hello! I'm your Math Tutor, trained on advanced calculus concepts. I can help you with derivatives, integrals, limits, and much more. What would you like to learn today?
+                            </p>
+                            <p class="text-xs text-gray-500 mt-2" data-mock="true">Just now</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Student Message -->
+                    <div class="flex items-start space-x-4 justify-end chat-bubble">
+                        <div class="bg-primary rounded-2xl rounded-tr-sm p-4 shadow-sm max-w-md">
+                            <p class="text-white" data-mock="true">
+                                Can you explain the chain rule in calculus?
+                            </p>
+                            <p class="text-xs text-primary-200 mt-2" data-mock="true">2 minutes ago</p>
+                        </div>
+                        <div class="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-user text-gray-600 text-sm"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Tutor Response with Avatar -->
+                    <div class="flex items-start space-x-4 chat-bubble">
+                        <div class="w-10 h-10 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-robot text-white text-sm"></i>
+                        </div>
+                        <div class="bg-white rounded-2xl rounded-tl-sm p-4 shadow-sm max-w-2xl">
+                            <p class="text-gray-900 leading-relaxed" data-mock="true">
+                                The <strong>chain rule</strong> is a fundamental rule in calculus for finding derivatives of composite functions. 
+                                If you have a function f(g(x)), the derivative is:
+                            </p>
+                            <div class="bg-gray-50 rounded-lg p-3 my-3 font-mono text-sm">
+                                (f ∘ g)'(x) = f'(g(x)) · g'(x)
+                            </div>
+                            <p class="text-gray-900" data-mock="true">
+                                In simple terms: differentiate the outer function, multiply by the derivative of the inner function.
+                                <br><br>
+                                <strong>Example:</strong> If f(x) = (3x + 1)², then:
+                                <br>• Outer function: u² where u = 3x + 1
+                                <br>• f'(u) = 2u = 2(3x + 1)
+                                <br>• Inner function: g(x) = 3x + 1, so g'(x) = 3
+                                <br>• Final answer: f'(x) = 2(3x + 1) · 3 = 6(3x + 1)
+                            </p>
+                            <p class="text-xs text-gray-500 mt-3" data-mock="true">1 minute ago</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Typing Indicator -->
+                    <div class="flex items-start space-x-4 chat-bubble hidden" id="typing-indicator">
+                        <div class="w-10 h-10 bg-gradient-to-r from-primary to-secondary rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-robot text-white text-sm"></i>
+                        </div>
+                        <div class="bg-white rounded-2xl rounded-tl-sm p-4 shadow-sm">
+                            <div class="flex space-x-2">
+                                <div class="w-2 h-2 bg-gray-400 rounded-full typing-indicator"></div>
+                                <div class="w-2 h-2 bg-gray-400 rounded-full typing-indicator" style="animation-delay: 0.2s;"></div>
+                                <div class="w-2 h-2 bg-gray-400 rounded-full typing-indicator" style="animation-delay: 0.4s;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Message Input -->
+                <div class="bg-white border-t border-gray-200 p-4">
+                    <div class="flex space-x-4">
+                        <div class="flex-1 relative">
+                            <input type="text" placeholder="Ask a question about your subject..." 
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors pr-12"
+                                   id="message-input" data-implementation="Handle message sending">
+                            <button class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-primary transition-colors" 
+                                    data-event="click:toggleVoiceInput">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                        </div>
+                        <button class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors flex items-center" 
+                                data-event="click:sendMessage" id="send-button">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                    
+                    <!-- Teaching Mode Buttons -->
+                    <div class="flex flex-wrap gap-2 mt-4">
+                        <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors" data-event="click:requestMode" data-mode="lecture">
+                            <i class="fas fa-chalkboard-teacher mr-2"></i>Lecture Mode
+                        </button>
+                        <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors" data-event="click:requestMode" data-mode="quiz">
+                            <i class="fas fa-question-circle mr-2"></i>Quiz Me
+                        </button>
+                        <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors" data-event="click:requestMode" data-mode="flashcards">
+                            <i class="fas fa-clone mr-2"></i>Flashcards
+                        </button>
+                        <button class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-primary hover:text-white transition-colors" data-event="click:requestMode" data-mode="examples">
+                            <i class="fas fa-lightbulb mr-2"></i>Examples
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3D Avatar Panel (Premium Feature) -->
+            <div class="w-80 bg-white border-l border-gray-200 flex flex-col">
+                <div class="p-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">AI Tutor Avatar</h3>
+                    <p class="text-sm text-gray-600">Interactive 3D teaching assistant</p>
+                </div>
+                
+                <div class="flex-1 flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
+                    <!-- Avatar Container -->
+                    <div class="text-center">
+                        <!-- Placeholder for 3D Avatar -->
+                        <!-- A professional 3D character model of a friendly teacher in business casual attire -->
+                        <div class="w-48 h-48 mx-auto mb-4 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center animate-pulse-slow">
+                            <i class="fas fa-user-tie text-white text-6xl"></i>
+                        </div>
+                        <p class="text-sm text-gray-600 mb-2" data-mock="true">Professor Alex</p>
+                        <p class="text-xs text-gray-500" data-mock="true">Speaking: "The chain rule is essential..."</p>
+                        
+                        <!-- Avatar Controls -->
+                        <div class="flex justify-center space-x-2 mt-4">
+                            <button class="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors" title="Mute Avatar">
+                                <i class="fas fa-volume-up text-gray-600"></i>
+                            </button>
+                            <button class="p-2 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors" title="Avatar Settings">
+                                <i class="fas fa-cog text-gray-600"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Upgrade Prompt (for Free users) -->
+                <div class="p-4 bg-gray-50 border-t border-gray-200">
+                    <div class="text-center">
+                        <p class="text-sm text-gray-600 mb-3">Upgrade to Pro for interactive 3D avatars with voice synthesis!</p>
+                        <button class="w-full bg-primary text-white py-2 rounded-lg text-sm hover:bg-primary/90 transition-colors" data-event="click:upgrade">
+                            Upgrade to Pro
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: StudentChatInterface -->
+
+    <!-- Authentication Modal -->
+    <!-- @COMPONENT: AuthModal [login/signup modals] -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
+                <button class="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors" data-event="click:closeModal">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+                
+                <!-- Login Form -->
+                <div id="login-form">
+                    <div class="text-center mb-8">
+                        <div class="w-16 h-16 bg-gradient-to-r from-primary to-secondary rounded-xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-brain text-white text-2xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h2>
+                        <p class="text-gray-600">Sign in to your BrainMate AI account</p>
+                    </div>
+                    
+                    <form class="space-y-6" data-implementation="Handle user authentication">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors" placeholder="your@email.com">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input type="password" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors" placeholder="••••••••">
+                        </div>
+                        
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center">
+                                <input type="checkbox" class="rounded border-gray-300 text-primary focus:ring-primary">
+                                <span class="ml-2 text-sm text-gray-600">Remember me</span>
+                            </label>
+                            <a href="#" class="text-sm text-primary hover:text-primary/80 transition-colors">Forgot password?</a>
+                        </div>
+                        
+                        <button type="submit" class="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors" data-event="click:login">
+                            Sign In
+                        </button>
+                        
+                        <div class="relative">
+                            <div class="absolute inset-0 flex items-center">
+                                <div class="w-full border-t border-gray-300"></div>
+                            </div>
+                            <div class="relative flex justify-center text-sm">
+                                <span class="px-2 bg-white text-gray-500">Or continue with</span>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="w-full bg-white border border-gray-300 py-3 rounded-lg font-semibold hover:bg-gray-50 transition-colors flex items-center justify-center" data-event="click:googleAuth">
+                            <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" class="w-5 h-5 mr-3">
+                            Continue with Google
+                        </button>
+                        
+                        <p class="text-center text-sm text-gray-600">
+                            Don't have an account? 
+                            <button type="button" class="text-primary hover:text-primary/80 transition-colors font-medium" data-event="click:showSignup">
+                                Sign up
+                            </button>
+                        </p>
+                    </form>
+                </div>
+                
+                <!-- Signup Form -->
+                <div id="signup-form" class="hidden">
+                    <div class="text-center mb-8">
+                        <div class="w-16 h-16 bg-gradient-to-r from-primary to-secondary rounded-xl flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-brain text-white text-2xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900 mb-2">Create Account</h2>
+                        <p class="text-gray-600">Start creating AI tutors today</p>
+                    </div>
+                    
+                    <form class="space-y-6" data-implementation="Handle user registration">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                                <input type="text" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors" placeholder="John">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                                <input type="text" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors" placeholder="Doe">
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                            <input type="email" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors" placeholder="your@email.com">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                            <input type="password" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors" placeholder="••••••••">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">I am a:</label>
+                            <select class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent transition-colors">
+                                <option>Educator/Teacher</option>
+                                <option>Student</option>
+                                <option>Institution Admin</option>
+                                <option>Other</option>
+                            </select>
+                        </div>
+                        
+                        <label class="flex items-start">
+                            <input type="checkbox" required class="rounded border-gray-300 text-primary focus:ring-primary mt-1">
+                            <span class="ml-2 text-sm text-gray-600">
+                                I agree to the <a href="#" class="text-primary hover:text-primary/80">Terms of Service</a> and 
+                                <a href="#" class="text-primary hover:text-primary/80">Privacy Policy</a>
+                            </span>
+                        </label>
+                        
+                        <button type="submit" class="w-full bg-primary text-white py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors" data-event="click:signup">
+                            Create Account
+                        </button>
+                        
+                        <p class="text-center text-sm text-gray-600">
+                            Already have an account? 
+                            <button type="button" class="text-primary hover:text-primary/80 transition-colors font-medium" data-event="click:showLogin">
+                                Sign in
+                            </button>
+                        </p>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- @END_COMPONENT: AuthModal -->
+
+    <!-- JavaScript -->
+    <script>
+        // TODO: Implement business logic, API calls, or state management
+        
+        (function() {
+            'use strict';
+            
+            // DOM elements
+            const body = document.getElementById('body');
+            const navbar = document.getElementById('navbar');
+            const themeToggle = document.getElementById('theme-toggle');
+            const themeToggleDashboard = document.getElementById('theme-toggle-dashboard');
+            const themeToggleChat = document.getElementById('theme-toggle-chat');
+            const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
+            const mobileMenu = document.getElementById('mobile-menu');
+            const authModal = document.getElementById('auth-modal');
+            const loginForm = document.getElementById('login-form');
+            const signupForm = document.getElementById('signup-form');
+            
+            // Page navigation
+            const landingPage = document.getElementById('landing-page');
+            const educatorDashboard = document.getElementById('educator-dashboard');
+            const studentChat = document.getElementById('student-chat');
+            
+            // Mock current user state
+            let currentUser = null;
+            let currentView = 'landing';
+            let isDarkMode = false;
+            
+            // Theme toggle functionality
+            function toggleTheme() {
+                isDarkMode = !isDarkMode;
+                if (isDarkMode) {
+                    body.classList.add('dark-mode');
+                    navbar.classList.add('dark-mode');
+                    updateThemeIcons('fa-sun');
+                } else {
+                    body.classList.remove('dark-mode');
+                    navbar.classList.remove('dark-mode');
+                    updateThemeIcons('fa-moon');
+                }
+            }
+            
+            function updateThemeIcons(iconClass) {
+                [themeToggle, themeToggleDashboard, themeToggleChat].forEach(toggle => {
+                    if (toggle) {
+                        const icon = toggle.querySelector('i');
+                        icon.className = `fas ${iconClass} text-gray-600`;
+                    }
+                });
+            }
+            
+            // Navigation functions
+            function showView(viewName) {
+                [landingPage, educatorDashboard, studentChat].forEach(view => {
+                    if (view) view.classList.add('hidden');
+                });
+                
+                currentView = viewName;
+                switch(viewName) {
+                    case 'landing':
+                        landingPage.classList.remove('hidden');
+                        break;
+                    case 'dashboard':
+                        educatorDashboard.classList.remove('hidden');
+                        break;
+                    case 'chat':
+                        studentChat.classList.remove('hidden');
+                        break;
+                }
+            }
+            
+            // Modal functions
+            function showModal() {
+                authModal.classList.remove('hidden');
+                document.body.style.overflow = 'hidden';
+            }
+            
+            function hideModal() {
+                authModal.classList.add('hidden');
+                document.body.style.overflow = 'auto';
+            }
+            
+            function showLogin() {
+                loginForm.classList.remove('hidden');
+                signupForm.classList.add('hidden');
+                showModal();
+            }
+            
+            function showSignup() {
+                signupForm.classList.remove('hidden');
+                loginForm.classList.add('hidden');
+                showModal();
+            }
+            
+            // Dashboard tab switching
+            function switchTab(tabName) {
+                document.querySelectorAll('.tab-content').forEach(tab => {
+                    tab.classList.add('hidden');
+                });
+                document.querySelectorAll('[data-tab]').forEach(link => {
+                    link.classList.remove('text-primary', 'bg-primary/10');
+                    link.classList.add('text-gray-600');
+                });
+                
+                const targetTab = document.getElementById(`tab-${tabName}`);
+                const targetLink = document.querySelector(`[data-tab="${tabName}"]`);
+                
+                if (targetTab) targetTab.classList.remove('hidden');
+                if (targetLink) {
+                    targetLink.classList.add('text-primary', 'bg-primary/10');
+                    targetLink.classList.remove('text-gray-600');
+                }
+            }
+            
+            // Chat simulation
+            function simulateTyping() {
+                const typingIndicator = document.getElementById('typing-indicator');
+                typingIndicator.classList.remove('hidden');
+                
+                setTimeout(() => {
+                    typingIndicator.classList.add('hidden');
+                    // Add tutor response here
+                }, 2000);
+            }
+            
+            // Event listeners
+            if (themeToggle) themeToggle.addEventListener('click', toggleTheme);
+            if (themeToggleDashboard) themeToggleDashboard.addEventListener('click', toggleTheme);
+            if (themeToggleChat) themeToggleChat.addEventListener('click', toggleTheme);
+            
+            if (mobileMenuToggle) {
+                mobileMenuToggle.addEventListener('click', () => {
+                    mobileMenu.classList.toggle('hidden');
+                });
+            }
+            
+            // Auth modal events
+            document.addEventListener('click', (e) => {
+                if (e.target.dataset.event === 'click:showLogin') {
+                    e.preventDefault();
+                    showLogin();
+                }
+                if (e.target.dataset.event === 'click:showSignup') {
+                    e.preventDefault();
+                    showSignup();
+                }
+                if (e.target.dataset.event === 'click:closeModal') {
+                    e.preventDefault();
+                    hideModal();
+                }
+                if (e.target.dataset.event === 'click:startTrial') {
+                    e.preventDefault();
+                    showSignup();
+                }
+                if (e.target.dataset.event === 'click:viewDemo') {
+                    e.preventDefault();
+                    showView('chat');
+                }
+                if (e.target.dataset.event === 'click:login') {
+                    e.preventDefault();
+                    // Simulate login
+                    currentUser = { name: 'Sarah Johnson', role: 'educator' };
+                    hideModal();
+                    showView('dashboard');
+                }
+                if (e.target.dataset.event === 'click:signup') {
+                    e.preventDefault();
+                    // Simulate signup
+                    currentUser = { name: 'New User', role: 'educator' };
+                    hideModal();
+                    showView('dashboard');
+                }
+                if (e.target.dataset.event === 'click:logout') {
+                    e.preventDefault();
+                    currentUser = null;
+                    showView('landing');
+                }
+                if (e.target.dataset.event === 'click:viewTutor') {
+                    e.preventDefault();
+                    showView('chat');
+                }
+                if (e.target.dataset.event === 'click:sendMessage') {
+                    e.preventDefault();
+                    const messageInput = document.getElementById('message-input');
+                    if (messageInput && messageInput.value.trim()) {
+                        // Add user message to chat
+                        messageInput.value = '';
+                        simulateTyping();
+                    }
+                }
+            });
+            
+            // Dashboard tab navigation
+            document.addEventListener('click', (e) => {
+                const tabName = e.target.closest('[data-tab]')?.dataset.tab;
+                if (tabName) {
+                    e.preventDefault();
+                    switchTab(tabName);
+                }
+            });
+            
+            // Message input enter key
+            const messageInput = document.getElementById('message-input');
+            if (messageInput) {
+                messageInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && messageInput.value.trim()) {
+                        // Simulate message sending
+                        messageInput.value = '';
+                        simulateTyping();
+                    }
+                });
+            }
+            
+            // Close modal on backdrop click
+            if (authModal) {
+                authModal.addEventListener('click', (e) => {
+                    if (e.target === authModal) {
+                        hideModal();
+                    }
+                });
+            }
+            
+            // Initialize
+            showView('landing');
+            
+        })();
+    </script>
+</body>
+</html>
