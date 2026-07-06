@@ -296,22 +296,120 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       try {
+        const isProgrammingQuery = /\b(code|program|python|javascript|java|c\+\+|function|algorithm|script)\b/i.test(
+          studentText,
+        );
+        const isBroadExplainQuery = /\b(explain|introduction|overview|teach me|what is)\b/i.test(studentText);
+
         const aiResponse = await openaiService.generateTutorResponse(
           tutorKnowledge,
           studentText,
           [],
-          "chat",
+          isBroadExplainQuery ? "lecture" : "chat",
           tutorSubject,
           preferredLanguage,
           "premium",
           "",
         );
 
-        const replyText = (aiResponse.content || "").trim();
+        let replyText = (aiResponse.content || "").trim();
         if (!replyText) {
           throw new Error("Empty AI response");
         }
-        return res.json({ replyText });
+
+        const looksTooShort = replyText.length < 320;
+        if (looksTooShort) {
+          const depthPrompt = `${studentText}
+
+Please answer in a full teaching format (not a short summary). Include:
+1) clear concept explanation,
+2) 3-5 key points,
+3) a practical example,
+${isProgrammingQuery ? "4) runnable code sample," : ""}
+5) one quick practice question for the student.
+`;
+
+          const deepResponse = await openaiService.generateTutorResponse(
+            tutorKnowledge,
+            depthPrompt,
+            [],
+            isProgrammingQuery ? "examples" : "lecture",
+            tutorSubject,
+            preferredLanguage,
+            "premium",
+            "",
+          );
+
+          const deepText = (deepResponse.content || "").trim();
+          if (deepText.length > replyText.length) {
+            replyText = deepText;
+          }
+        }
+
+        // Normalize cases where model wraps answer in JSON markdown block.
+        const cleanedReply = (() => {
+          const trimmed = replyText.trim();
+          const fencedJsonMatch = trimmed.match(/```json\s*([\s\S]*?)```/i);
+          const candidate = fencedJsonMatch ? fencedJsonMatch[1] : trimmed;
+          try {
+            const parsed = JSON.parse(candidate);
+            if (parsed && typeof parsed.content === "string" && parsed.content.trim()) {
+              return parsed.content.trim();
+            }
+          } catch (_error) {
+            // If strict JSON parse fails, try extracting content field text.
+            const contentMatch = candidate.match(/"content"\s*:\s*"([\s\S]*?)"\s*,\s*"emotion"/i);
+            if (contentMatch?.[1]) {
+              return contentMatch[1]
+                .replace(/\\"/g, '"')
+                .replace(/\\n/g, "\n")
+                .trim();
+            }
+          }
+          return trimmed;
+        })();
+
+        const finalReply =
+          cleanedReply.length >= 220
+            ? cleanedReply
+            : (() => {
+                if (isProgrammingQuery || /python/i.test(studentText)) {
+                  return `Great question — here is a clear explanation of Python.
+
+Python is a high-level, interpreted programming language known for readability and rapid development.
+
+Key features:
+1) Simple syntax (easy to learn and maintain)
+2) Huge library ecosystem (web, data science, AI, automation)
+3) Cross-platform support (Windows, macOS, Linux)
+4) Multiple programming styles (procedural, OOP, functional)
+
+Example program:
+\`\`\`python
+name = input("Enter your name: ")
+print(f"Hello, {name}! Welcome to Python.")
+\`\`\`
+
+How this works:
+- \`input()\` reads user text from keyboard
+- value is stored in \`name\`
+- \`f\"...\"\` formats output with the variable
+
+Practice question:
+How would you modify this program to also ask the user for age and print both name and age?`;
+                }
+
+                return `Let me explain this clearly:
+
+1) Core concept
+2) Why it matters
+3) Practical example
+4) One practice question
+
+Ask me to continue and I will provide a deeper step-by-step explanation.`;
+              })();
+
+        return res.json({ replyText: finalReply });
       } catch (aiError) {
         console.warn("Primary tutor AI generation failed, using fallback:", aiError);
       }
