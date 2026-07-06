@@ -145,6 +145,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         const trimmedText = studentText.trim();
         if (!trimmedText || !sessionRef.current) return;
 
+        let generatedReply = "";
         try {
           setIsReplyPending(true);
           setErrorMessage("");
@@ -156,7 +157,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
             lessonContext,
           });
           const payload = (await replyResponse.json()) as GenerateReplyResponse;
-          const generatedReply = payload.replyText?.trim();
+          generatedReply = payload.replyText?.trim();
           if (!generatedReply) {
             throw new Error("Empty reply generated");
           }
@@ -164,10 +165,18 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
           setReplyText(generatedReply);
           setBoardText(generatedReply);
           setChatMessages((prev) => [...prev, { role: "assistant", text: generatedReply }]);
-          await sessionRef.current.repeat(generatedReply);
         } catch (error) {
-          console.error("Failed to generate or speak reply:", error);
+          console.error("Failed to generate teacher reply:", error);
           setErrorMessage("Could not generate teacher reply. Please try again.");
+          return;
+        }
+
+        try {
+          await sessionRef.current.repeat(generatedReply);
+          setErrorMessage("");
+        } catch (error) {
+          console.error("Failed to speak generated reply:", error);
+          setErrorMessage("Reply generated, but avatar voice failed. Text answer is shown on board and chat.");
         } finally {
           setIsReplyPending(false);
         }
@@ -187,7 +196,13 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         setReplyText(cleaned);
         setBoardText(cleaned);
         setChatMessages((prev) => [...prev, { role: "assistant", text: cleaned }]);
-        await sessionRef.current.repeat(cleaned);
+        try {
+          await sessionRef.current.repeat(cleaned);
+          setErrorMessage("");
+        } catch (error) {
+          console.error("Failed to speak manual reply:", error);
+          setErrorMessage("Reply text was generated, but avatar voice failed for this message.");
+        }
       },
       [markActivity],
     );
