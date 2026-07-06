@@ -136,6 +136,9 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
   const [isReplying, setIsReplying] = useState(false);
   const [isMicActive, setIsMicActive] = useState(false);
   const [isMicPermissionPending, setIsMicPermissionPending] = useState(false);
+  const [micPermissionState, setMicPermissionState] = useState<"unknown" | "granted" | "denied" | "prompt">(
+    "unknown",
+  );
   const [errorMessage, setErrorMessage] = useState("");
   const [textQuestion, setTextQuestion] = useState("");
   const [boardText, setBoardText] = useState("");
@@ -159,7 +162,9 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
     : status === "connecting"
       ? "Connecting to tutor session..."
       : status === "connected"
-        ? "Live classroom session active."
+        ? micPermissionState === "denied"
+          ? "Live session active, but microphone access is denied."
+          : "Live classroom session active."
         : "Not connected. Tap Connect to begin.";
 
   const clearListeners = useCallback(() => {
@@ -202,17 +207,35 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
     const client = anamRef.current;
     if (!client) throw new Error("Anam session is not connected");
 
-    const stream = client.createTalkMessageStream();
-    const chunks = splitIntoChunks(replyText);
-    if (chunks.length === 0) {
-      return;
+    const shouldUnmuteAfter = isMicActive;
+    try {
+      // Prevent self-interruption while persona is talking.
+      client.muteInputAudio();
+    } catch (_error) {
+      // no-op
     }
 
-    for (let i = 0; i < chunks.length; i++) {
-      await stream.streamMessageChunk(chunks[i], i === chunks.length - 1);
+    try {
+      const stream = client.createTalkMessageStream();
+      const chunks = splitIntoChunks(replyText);
+      if (chunks.length === 0) {
+        return;
+      }
+
+      for (let i = 0; i < chunks.length; i++) {
+        await stream.streamMessageChunk(chunks[i], i === chunks.length - 1);
+      }
+      await stream.endMessage();
+    } finally {
+      if (shouldUnmuteAfter) {
+        try {
+          client.unmuteInputAudio();
+        } catch (_error) {
+          // no-op
+        }
+      }
     }
-    await stream.endMessage();
-  }, []);
+  }, [isMicActive]);
 
   const requestReplyFromHistory = useCallback(
     async (messages: Message[]) => {
@@ -252,6 +275,34 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
     [languageCode, lessonContext, streamReplyToPersona, tutorId],
   );
 
+  const generateAndSpeakReply = useCallback(
+    async (studentText: string) => {
+      const cleaned = studentText.trim();
+      if (!cleaned) return;
+      const response = await fetch("/api/generate-reply", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentText: cleaned,
+          tutorId,
+          lessonContext,
+          language: (normalizeAnamLanguageCode(languageCode) || "en").startsWith("hi")
+            ? "Hindi"
+            : "English",
+        }),
+      });
+      const payload = await parseJsonResponse<GenerateReplyResponse>(response, "/api/generate-reply");
+      const replyText = String(payload.replyText || "").trim();
+      if (!replyText) {
+        throw new Error("Generated reply was empty.");
+      }
+      setBoardText(replyText);
+      await streamReplyToPersona(replyText);
+    },
+    [languageCode, lessonContext, streamReplyToPersona, tutorId],
+  );
+
   const speakText = useCallback(
     async (text: string) => {
       const client = anamRef.current;
@@ -266,7 +317,23 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
       resetIdleTimer();
       try {
         setBoardText(cleaned);
-        await client.talk(cleaned);
+        const shouldUnmuteAfter = isMicActive;
+        try {
+          client.muteInputAudio();
+        } catch (_error) {
+          // no-op
+        }
+        try {
+          await client.talk(cleaned);
+        } finally {
+          if (shouldUnmuteAfter) {
+            try {
+              client.unmuteInputAudio();
+            } catch (_error) {
+              // no-op
+            }
+          }
+        }
       } catch (error: any) {
         setErrorMessage(formatAnamErrorMessage(error, "Failed to send text to avatar"));
       } finally {
@@ -342,19 +409,23 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
       addListener(AnamEvent.INPUT_AUDIO_STREAM_STARTED, () => {
         setIsMicActive(true);
         setIsMicPermissionPending(false);
+        setMicPermissionState("granted");
       });
 
       addListener(AnamEvent.MIC_PERMISSION_PENDING, () => {
         setIsMicPermissionPending(true);
+        setMicPermissionState("prompt");
       });
 
       addListener(AnamEvent.MIC_PERMISSION_GRANTED, () => {
         setIsMicPermissionPending(false);
+        setMicPermissionState("granted");
       });
 
       addListener(AnamEvent.MIC_PERMISSION_DENIED, (error) => {
         setIsMicActive(false);
         setIsMicPermissionPending(false);
+        setMicPermissionState("denied");
         setErrorMessage(
           `Microphone permission denied: ${error || "Please allow mic access for voice mode."}`,
         );
@@ -414,6 +485,33 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
     videoElementId,
     voiceId,
   ]);
+
+  useEffect(() => {
+    if (!("permissions" in navigator)) return;
+    let cancelled = false;
+    // Best-effort browser permissions introspection (not all browsers support this).
+    void (navigator as any).permissions
+      ?.query?.({ name: "microphone" })
+      .then((result: any) => {
+        if (cancelled || !result?.state) return;
+        const next = String(result.state);
+        if (next === "granted" || next === "denied" || next === "prompt") {
+          setMicPermissionState(next);
+        }
+        result.onchange = () => {
+          const updated = String(result.state);
+          if (updated === "granted" || updated === "denied" || updated === "prompt") {
+            setMicPermissionState(updated);
+          }
+        };
+      })
+      .catch(() => {
+        // no-op
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -530,7 +628,9 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
             onSubmit={(event) => {
               event.preventDefault();
               if (!textQuestion.trim() || status !== "connected" || isReplying) return;
-              void speakText(textQuestion.trim());
+              void generateAndSpeakReply(textQuestion.trim()).catch((error: any) => {
+                setErrorMessage(formatAnamErrorMessage(error, "Failed to generate teacher response"));
+              });
               setTextQuestion("");
             }}
           >
@@ -556,7 +656,9 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
                 ? "Waiting for microphone permission..."
                 : isMicActive
                   ? "Voice chat mode is live. Speak naturally; Anam transcribes automatically."
-                  : "Voice chat mode is selected. Connect and allow mic to start speaking."}
+                  : micPermissionState === "denied"
+                    ? "Microphone is blocked in your browser settings."
+                    : "Voice chat mode is selected. Connect and allow mic to start speaking."}
             </p>
             <p>
               {isReplying
