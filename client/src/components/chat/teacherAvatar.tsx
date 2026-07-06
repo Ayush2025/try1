@@ -9,10 +9,10 @@ import {
 import {
   AgentEventsEnum,
   LiveAvatarSession,
+  SessionDisconnectReason,
   SessionEvent,
   SessionInteractivityMode,
   SessionState,
-  type SessionDisconnectReason,
 } from "@heygen/liveavatar-web-sdk";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -75,11 +75,8 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
     const sessionRef = useRef<LiveAvatarSession | null>(null);
     const silenceTimerRef = useRef<number | null>(null);
     const inactivityTimerRef = useRef<number | null>(null);
-    const keepAliveTimerRef = useRef<number | null>(null);
-    const reconnectTimerRef = useRef<number | null>(null);
     const speakFallbackTimerRef = useRef<number | null>(null);
     const avatarSpeechStartedRef = useRef(false);
-    const reconnectAttemptsRef = useRef(0);
     const lastUserTranscriptRef = useRef("");
     const ignoreUserTranscriptsRef = useRef(false);
     const isSessionClosingRef = useRef(false);
@@ -122,11 +119,11 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
       try {
         setIsListening(false);
         setIsConnected(false);
-        if (keepAliveTimerRef.current) {
-          window.clearInterval(keepAliveTimerRef.current);
-          keepAliveTimerRef.current = null;
+        const current = sessionRef.current;
+        // Avoid stop calls on already-disconnected sessions (SDK can throw unhandled rejections).
+        if (current.state === SessionState.CONNECTED || current.state === SessionState.CONNECTING) {
+          await current.stop();
         }
-        await sessionRef.current.stop();
       } catch (error) {
         console.error("Failed to close avatar session:", error);
       } finally {
@@ -248,7 +245,15 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
     useImperativeHandle(ref, () => ({ speak }), [speak]);
 
     const connectSession = useCallback(async () => {
-      if (sessionRef.current) return;
+      if (sessionRef.current) {
+        if (
+          sessionRef.current.state === SessionState.CONNECTED ||
+          sessionRef.current.state === SessionState.CONNECTING
+        ) {
+          return;
+        }
+        sessionRef.current = null;
+      }
 
       try {
         setIsConnecting(true);
@@ -278,19 +283,6 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
           setSessionState(state);
           setIsConnected(state === SessionState.CONNECTED);
-          if (state === SessionState.CONNECTED && sessionRef.current) {
-            reconnectAttemptsRef.current = 0;
-            if (keepAliveTimerRef.current) {
-              window.clearInterval(keepAliveTimerRef.current);
-            }
-            keepAliveTimerRef.current = window.setInterval(() => {
-              if (sessionRef.current) {
-                void sessionRef.current.keepAlive().catch((err) => {
-                  console.warn("keepAlive failed:", err);
-                });
-              }
-            }, 45000);
-          }
         });
 
         session.on(SessionEvent.SESSION_STREAM_READY, () => {
@@ -307,27 +299,12 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         session.on(SessionEvent.SESSION_DISCONNECTED, (reason: SessionDisconnectReason) => {
           setIsConnected(false);
           setIsListening(false);
+          sessionRef.current = null;
           onStreamDisconnected?.(reason);
-          setErrorMessage(`Stream disconnected: ${reason}`);
-          if (keepAliveTimerRef.current) {
-            window.clearInterval(keepAliveTimerRef.current);
-            keepAliveTimerRef.current = null;
-          }
-
-          // Auto-reconnect for unexpected transport drops only.
-          if (
-            !isSessionClosingRef.current &&
-            String(reason).includes("UNKNOWN") &&
-            reconnectAttemptsRef.current < 3
-          ) {
-            reconnectAttemptsRef.current += 1;
-            if (reconnectTimerRef.current) {
-              window.clearTimeout(reconnectTimerRef.current);
-            }
-            reconnectTimerRef.current = window.setTimeout(() => {
-              sessionRef.current = null;
-              void connectSession();
-            }, 1500 * reconnectAttemptsRef.current);
+          if (reason === SessionDisconnectReason.CLIENT_INITIATED) {
+            setErrorMessage("");
+          } else {
+            setErrorMessage(`Stream disconnected: ${reason}`);
           }
         });
 
@@ -450,8 +427,6 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
       return () => {
         if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
         if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
-        if (reconnectTimerRef.current) window.clearTimeout(reconnectTimerRef.current);
-        if (keepAliveTimerRef.current) window.clearInterval(keepAliveTimerRef.current);
         if (speakFallbackTimerRef.current) window.clearTimeout(speakFallbackTimerRef.current);
         stopVoiceMode();
         void closeSession();
@@ -496,6 +471,18 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         {errorMessage && (
           <div className="text-sm rounded-md border border-red-300 bg-red-50 text-red-700 px-3 py-2">
             {errorMessage}
+            {sessionState === SessionState.DISCONNECTED && (
+              <Button
+                variant="link"
+                className="ml-2 h-auto p-0 text-red-700 underline"
+                onClick={() => {
+                  setErrorMessage("");
+                  void connectSession();
+                }}
+              >
+                Reconnect
+              </Button>
+            )}
           </div>
         )}
 
