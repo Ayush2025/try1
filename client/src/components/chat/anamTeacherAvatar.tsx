@@ -110,6 +110,42 @@ const formatAnamErrorMessage = (error: unknown, fallback: string) => {
   return base;
 };
 
+const unwrapTutorReply = (rawReply: string) => {
+  const trimmed = String(rawReply || "").trim();
+  if (!trimmed) return "";
+
+  const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = (fencedMatch?.[1] || trimmed).trim();
+
+  const contentFromObject = (value: any) => {
+    if (!value || typeof value !== "object") return null;
+    const content = value.content;
+    return typeof content === "string" ? content.trim() : null;
+  };
+
+  try {
+    const parsed = JSON.parse(candidate);
+    const extracted = contentFromObject(parsed);
+    if (extracted) return extracted;
+  } catch (_error) {
+    // no-op
+  }
+
+  // Handle common malformed JSON cases where the model emits escaped content.
+  const contentRegex =
+    /"content"\s*:\s*"([\s\S]*?)"\s*(?:,\s*"emotion"\s*:|,\s*"suggestions"\s*:|,\s*"needsClarification"\s*:|,\s*"resources"\s*:|\})/i;
+  const contentMatch = candidate.match(contentRegex);
+  if (contentMatch?.[1]) {
+    return contentMatch[1]
+      .replace(/\\"/g, '"')
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .trim();
+  }
+
+  return trimmed;
+};
+
 export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(function TeacherAvatar(
   {
     avatarId,
@@ -267,7 +303,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
       });
 
       const payload = await parseJsonResponse<GenerateReplyResponse>(response, "/api/generate-reply");
-      const replyText = String(payload.replyText || "").trim();
+      const replyText = unwrapTutorReply(payload.replyText || "");
       if (!replyText) throw new Error("LLM returned empty reply text");
       setBoardText(replyText);
       await streamReplyToPersona(replyText);
@@ -293,7 +329,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
         }),
       });
       const payload = await parseJsonResponse<GenerateReplyResponse>(response, "/api/generate-reply");
-      const replyText = String(payload.replyText || "").trim();
+      const replyText = unwrapTutorReply(payload.replyText || "");
       if (!replyText) {
         throw new Error("Generated reply was empty.");
       }
