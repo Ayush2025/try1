@@ -424,7 +424,28 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
 
     useEffect(() => {
       void connectSession();
+
+      const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+        const reason = event.reason;
+        const message =
+          typeof reason === "string"
+            ? reason
+            : reason?.message || reason?.toString?.() || "";
+
+        // LiveAvatar SDK can emit an unhandled rejection for stale stop-session calls.
+        // Prevent Vite runtime overlay for this known non-fatal condition.
+        if (String(message).toLowerCase().includes("session not found")) {
+          event.preventDefault();
+          setErrorMessage("Avatar session expired. Reconnect to continue.");
+          setIsConnected(false);
+          sessionRef.current = null;
+        }
+      };
+
+      window.addEventListener("unhandledrejection", handleUnhandledRejection);
+
       return () => {
+        window.removeEventListener("unhandledrejection", handleUnhandledRejection);
         if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
         if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
         if (speakFallbackTimerRef.current) window.clearTimeout(speakFallbackTimerRef.current);
