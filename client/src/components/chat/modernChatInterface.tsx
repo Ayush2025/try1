@@ -105,6 +105,8 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
   const stageEmbedUrl: string = classroomStage.modelEmbedUrl || "";
   const stageHeygenAvatarId: string = classroomStage.heygenAvatarId || "";
   const stageHeygenVoiceId: string = classroomStage.heygenVoiceId || "";
+  const resolvedHeygenAvatarId: string =
+    stageHeygenAvatarId || "28ea726f665349f3878b5188ccb4d1bf";
 
   // Theme management
   useEffect(() => {
@@ -606,14 +608,12 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
               latestTutorText={latestAssistantMessage}
             />
 
-            {stageHeygenAvatarId && (
-              <TeacherAvatar
-                avatarId={stageHeygenAvatarId}
-                voiceId={stageHeygenVoiceId || undefined}
-                language={selectedLanguage === "Hindi" ? "hi" : "en"}
-                lessonContext={`Tutor subject: ${tutor.subject || "General"}`}
-              />
-            )}
+            <TeacherAvatar
+              avatarId={resolvedHeygenAvatarId}
+              voiceId={stageHeygenVoiceId || undefined}
+              language={selectedLanguage === "Hindi" ? "hi" : "en"}
+              lessonContext={`Tutor subject: ${tutor.subject || "General"}`}
+            />
 
             {localMessages.length === 0 && !isTyping && (
               <div className="text-center py-12">
