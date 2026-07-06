@@ -119,11 +119,9 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
       try {
         setIsListening(false);
         setIsConnected(false);
-        const current = sessionRef.current;
-        // Avoid stop calls on already-disconnected sessions (SDK can throw unhandled rejections).
-        if (current.state === SessionState.CONNECTED || current.state === SessionState.CONNECTING) {
-          await current.stop();
-        }
+        setSessionState(SessionState.DISCONNECTED);
+        // Avoid SDK stop() in UI teardown path; its internal async cleanup can throw
+        // non-fatal "Session not found" errors that bubble as unhandled runtime crashes.
       } catch (error) {
         console.error("Failed to close avatar session:", error);
       } finally {
@@ -425,27 +423,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
     useEffect(() => {
       void connectSession();
 
-      const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-        const reason = event.reason;
-        const message =
-          typeof reason === "string"
-            ? reason
-            : reason?.message || reason?.toString?.() || "";
-
-        // LiveAvatar SDK can emit an unhandled rejection for stale stop-session calls.
-        // Prevent Vite runtime overlay for this known non-fatal condition.
-        if (String(message).toLowerCase().includes("session not found")) {
-          event.preventDefault();
-          setErrorMessage("Avatar session expired. Reconnect to continue.");
-          setIsConnected(false);
-          sessionRef.current = null;
-        }
-      };
-
-      window.addEventListener("unhandledrejection", handleUnhandledRejection);
-
       return () => {
-        window.removeEventListener("unhandledrejection", handleUnhandledRejection);
         if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
         if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
         if (speakFallbackTimerRef.current) window.clearTimeout(speakFallbackTimerRef.current);
