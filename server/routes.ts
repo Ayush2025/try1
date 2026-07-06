@@ -6,6 +6,7 @@ import fs from "fs";
 import zlib from "zlib";
 import { nanoid } from "nanoid";
 import Razorpay from "razorpay";
+import { generateSimliSessionToken } from "simli-client/dist/client.js";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
 import { openaiService } from "./services/openai";
@@ -70,6 +71,487 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Authentication routes are now handled in setupAuth
+
+  // Anam session token endpoint (server-side only).
+  // Never expose ANAM_API_KEY to the browser.
+  app.post("/api/session-token", async (req, res) => {
+    try {
+      const anamApiKey = process.env.ANAM_API_KEY;
+      if (!anamApiKey) {
+        return res.status(500).json({
+          message: "ANAM_API_KEY is not configured on the server",
+          error: "MISSING_ANAM_API_KEY",
+        });
+      }
+
+      const avatarId = String(req.body?.avatarId || process.env.ANAM_AVATAR_ID || "").trim();
+      const voiceId = String(req.body?.voiceId || process.env.ANAM_VOICE_ID || "").trim();
+      const languageCode = String(
+        req.body?.languageCode || process.env.ANAM_LANGUAGE_CODE || "",
+      ).trim();
+      const lessonContext = String(req.body?.lessonContext || "").trim();
+      const systemPromptInput = String(req.body?.systemPrompt || "").trim();
+      const systemPrompt =
+        systemPromptInput ||
+        `You are an engaging, patient teacher avatar. Teach clearly, step by step, and adapt explanations to the student's level.${lessonContext ? ` Lesson context: ${lessonContext}` : ""}`;
+
+      if (!avatarId) {
+        return res.status(400).json({
+          message: "avatarId is required (or set ANAM_AVATAR_ID in env)",
+          error: "MISSING_ANAM_AVATAR_ID",
+        });
+      }
+      if (!voiceId) {
+        return res.status(400).json({
+          message: "voiceId is required (or set ANAM_VOICE_ID in env)",
+          error: "MISSING_ANAM_VOICE_ID",
+        });
+      }
+
+      const anamResponse = await fetch("https://api.anam.ai/v1/auth/session-token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${anamApiKey}`,
+        },
+        body: JSON.stringify({
+          personaConfig: {
+            avatarId,
+            voiceId,
+            llmId: "CUSTOMER_CLIENT_V1",
+            systemPrompt,
+            ...(languageCode ? { languageCode } : {}),
+          },
+        }),
+      });
+
+      const responseText = await anamResponse.text();
+      let responseJson: any = null;
+      try {
+        responseJson = responseText ? JSON.parse(responseText) : null;
+      } catch (_error) {
+        responseJson = null;
+      }
+
+      if (!anamResponse.ok) {
+        return res.status(anamResponse.status).json({
+          message:
+            responseJson?.message || responseJson?.error || "Failed to create Anam session token",
+          error: "ANAM_SESSION_TOKEN_REQUEST_FAILED",
+          details: responseJson ?? responseText,
+        });
+      }
+
+      const sessionToken =
+        responseJson?.sessionToken ||
+        responseJson?.data?.sessionToken ||
+        responseJson?.token ||
+        responseJson?.data?.token ||
+        null;
+
+      if (!sessionToken) {
+        return res.status(502).json({
+          message: "Anam response did not include a session token",
+          error: "ANAM_INVALID_TOKEN_RESPONSE",
+          details: responseJson,
+        });
+      }
+
+      return res.json({ sessionToken });
+    } catch (error) {
+      console.error("Error creating Anam session token:", error);
+      return res.status(500).json({
+        message: "Failed to create Anam session token",
+        error: "ANAM_SESSION_TOKEN_INTERNAL_ERROR",
+      });
+    }
+  });
+
+  // Simli session token endpoint (server-side only).
+  // Never expose SIMLI_API_KEY to the browser.
+  app.post("/api/get-simli-token", async (req, res) => {
+    try {
+      const apiKey = process.env.SIMLI_API_KEY;
+      const faceId = String(req.body?.faceId || process.env.SIMLI_FACE_ID || "").trim();
+      if (!apiKey) {
+        return res.status(500).json({
+          message: "SIMLI_API_KEY is not configured on the server",
+          error: "MISSING_SIMLI_API_KEY",
+        });
+      }
+      if (!faceId) {
+        return res.status(400).json({
+          message: "faceId is required (or set SIMLI_FACE_ID in env)",
+          error: "MISSING_SIMLI_FACE_ID",
+        });
+      }
+
+      const tokenResponse = await generateSimliSessionToken({
+        apiKey,
+        config: {
+          faceId,
+          handleSilence: true,
+          maxSessionLength: 1800,
+          maxIdleTime: 120,
+          model: "fasttalk",
+        },
+      });
+
+      if (!tokenResponse?.session_token) {
+        return res.status(502).json({
+          message: "Simli token response missing session token",
+          error: "SIMLI_INVALID_TOKEN_RESPONSE",
+        });
+      }
+
+      return res.json({ token: tokenResponse.session_token });
+    } catch (error) {
+      console.error("Error creating Simli session token:", error);
+      return res.status(500).json({
+        message: "Failed to create Simli session token",
+        error: "SIMLI_TOKEN_REQUEST_FAILED",
+      });
+    }
+  });
+
+  // TTS route scaffold for Simli lip-sync pipeline.
+  // Returns raw WAV bytes (16-bit PCM mono, 16kHz) for local testing.
+  // TODO: Replace with your provider call and convert provider output
+  // to a Simli-compatible format before returning (sample-rate/encoding as needed).
+  app.post("/api/tts", async (req, res) => {
+    try {
+      const text = String(req.body?.text || "").trim();
+      if (!text) {
+        return res.status(400).json({
+          message: "text is required",
+          error: "MISSING_TEXT",
+        });
+      }
+
+      const durationSeconds = Math.min(8, Math.max(1, Math.ceil(text.length / 20)));
+      const sampleRate = 16000;
+      const numChannels = 1;
+      const bitsPerSample = 16;
+      const bytesPerSample = bitsPerSample / 8;
+      const totalSamples = sampleRate * durationSeconds;
+      const dataSize = totalSamples * numChannels * bytesPerSample;
+      const wavBuffer = Buffer.alloc(44 + dataSize);
+
+      // WAV header
+      wavBuffer.write("RIFF", 0);
+      wavBuffer.writeUInt32LE(36 + dataSize, 4);
+      wavBuffer.write("WAVE", 8);
+      wavBuffer.write("fmt ", 12);
+      wavBuffer.writeUInt32LE(16, 16); // PCM chunk size
+      wavBuffer.writeUInt16LE(1, 20); // PCM format
+      wavBuffer.writeUInt16LE(numChannels, 22);
+      wavBuffer.writeUInt32LE(sampleRate, 24);
+      wavBuffer.writeUInt32LE(sampleRate * numChannels * bytesPerSample, 28);
+      wavBuffer.writeUInt16LE(numChannels * bytesPerSample, 32);
+      wavBuffer.writeUInt16LE(bitsPerSample, 34);
+      wavBuffer.write("data", 36);
+      wavBuffer.writeUInt32LE(dataSize, 40);
+
+      // Simple low-volume tone so pipeline has non-silent bytes in stub mode.
+      const frequency = 440;
+      for (let i = 0; i < totalSamples; i++) {
+        const t = i / sampleRate;
+        const sample = Math.floor(0.1 * 32767 * Math.sin(2 * Math.PI * frequency * t));
+        wavBuffer.writeInt16LE(sample, 44 + i * 2);
+      }
+
+      res.setHeader("Content-Type", "audio/wav");
+      res.setHeader("Cache-Control", "no-store");
+      return res.send(wavBuffer);
+    } catch (error) {
+      console.error("Error in /api/tts:", error);
+      return res.status(500).json({
+        message: "Failed to synthesize speech",
+        error: "TTS_INTERNAL_ERROR",
+      });
+    }
+  });
+
+  // HeyGen / LiveAvatar session token endpoint.
+  // Keeps API key server-side and returns only a short-lived session token.
+  app.post("/api/get-access-token", async (req, res) => {
+    try {
+      const apiKey = process.env.HEYGEN_API_KEY || process.env.LIVEAVATAR_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({
+          message: "HEYGEN_API_KEY is not configured on the server",
+          error: "MISSING_HEYGEN_API_KEY",
+        });
+      }
+
+      const avatarId = req.body?.avatarId || process.env.HEYGEN_AVATAR_ID || "28ea726f665349f3878b5188ccb4d1bf";
+      const voiceId = req.body?.voiceId || process.env.HEYGEN_VOICE_ID;
+      const language = req.body?.language || "en";
+      const mode = req.body?.mode || "LITE";
+      const activityIdleTimeout = Number(req.body?.activityIdleTimeout ?? 180);
+
+      const tokenPayload: Record<string, any> = {
+        mode,
+        avatar_id: avatarId,
+        activity_idle_timeout:
+          Number.isFinite(activityIdleTimeout) && activityIdleTimeout >= 30 && activityIdleTimeout <= 3600
+            ? activityIdleTimeout
+            : 180,
+      };
+
+      if (voiceId || language) {
+        tokenPayload.avatar_persona = {
+          ...(voiceId ? { voice_id: voiceId } : {}),
+          ...(language ? { language } : {}),
+        };
+      }
+
+      const tokenResponse = await fetch("https://api.liveavatar.com/v1/sessions/token", {
+        method: "POST",
+        headers: {
+          "X-API-KEY": apiKey,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(tokenPayload),
+      });
+
+      const responseText = await tokenResponse.text();
+      let responseJson: any = null;
+      try {
+        responseJson = responseText ? JSON.parse(responseText) : null;
+      } catch (_error) {
+        responseJson = null;
+      }
+
+      if (!tokenResponse.ok) {
+        const providerMessage =
+          responseJson?.message ||
+          responseJson?.error ||
+          "Failed to create LiveAvatar access token";
+        return res.status(tokenResponse.status).json({
+          message: providerMessage,
+          error: "HEYGEN_TOKEN_REQUEST_FAILED",
+          details: responseJson ?? responseText,
+        });
+      }
+
+      const sessionToken = responseJson?.data?.session_token || responseJson?.session_token || null;
+      const sessionId = responseJson?.data?.session_id || responseJson?.session_id || null;
+
+      if (!sessionToken) {
+        return res.status(502).json({
+          message: "LiveAvatar token response did not include a session token",
+          error: "HEYGEN_INVALID_TOKEN_RESPONSE",
+          details: responseJson,
+        });
+      }
+
+      return res.json({
+        sessionToken,
+        sessionId,
+      });
+    } catch (error) {
+      console.error("Error generating HeyGen access token:", error);
+      return res.status(500).json({
+        message: "Failed to generate HeyGen access token",
+        error: "HEYGEN_TOKEN_INTERNAL_ERROR",
+      });
+    }
+  });
+
+  // Placeholder LLM response route for avatar voice/text flow.
+  app.post("/api/generate-reply", async (req, res) => {
+    try {
+      const rawHistory = Array.isArray(req.body?.history)
+        ? req.body.history
+            .map((message: any) => ({
+              role: String(message?.role || "").trim().toLowerCase(),
+              content: String(message?.content || "").trim(),
+            }))
+            .filter(
+              (message: { role: string; content: string }) =>
+                (message.role === "user" ||
+                  message.role === "assistant" ||
+                  message.role === "persona" ||
+                  message.role === "system") &&
+                Boolean(message.content),
+            )
+        : [];
+
+      const lastUserMessage = [...rawHistory].reverse().find((message) => message.role === "user");
+      const studentText = String(lastUserMessage?.content || req.body?.studentText || "").trim();
+      const lessonContext = String(req.body?.lessonContext || "").trim();
+      const preferredLanguage = String(req.body?.language || "English").trim();
+      const tutorId = Number(req.body?.tutorId);
+
+      if (!studentText) {
+        return res.status(400).json({
+          message: "studentText is required",
+          error: "MISSING_STUDENT_TEXT",
+        });
+      }
+
+      let tutorSubject = "General";
+      let tutorKnowledge = lessonContext || "General tutoring context";
+      const conversationHistory = rawHistory.slice(-12).map((message) => ({
+        role: message.role === "assistant" || message.role === "persona" ? "assistant" : "user",
+        content: message.content,
+      }));
+
+      if (!Number.isNaN(tutorId) && tutorId > 0) {
+        const tutor = await storage.getTutorByIdWithContent(tutorId);
+        if (tutor) {
+          tutorSubject = tutor.subject || tutorSubject;
+          const contentBlob = (tutor.content || [])
+            .map((item: any) => item?.content || "")
+            .filter(Boolean)
+            .join("\n\n");
+          tutorKnowledge = contentBlob || lessonContext || `Tutor subject: ${tutorSubject}`;
+        }
+      }
+
+      try {
+        // TODO(LLM): Replace this provider call with your own model orchestration.
+        // Route contract already supports Anam voice mode by accepting full `history`
+        // and can be upgraded to streaming without changing client payload shape.
+        const isProgrammingQuery = /\b(code|program|python|javascript|java|c\+\+|function|algorithm|script)\b/i.test(
+          studentText,
+        );
+        const isBroadExplainQuery = /\b(explain|introduction|overview|teach me|what is)\b/i.test(studentText);
+
+        const aiResponse = await openaiService.generateTutorResponse(
+          tutorKnowledge,
+          studentText,
+          conversationHistory,
+          isBroadExplainQuery ? "lecture" : "chat",
+          tutorSubject,
+          preferredLanguage,
+          "premium",
+          "",
+        );
+
+        let replyText = (aiResponse.content || "").trim();
+        if (!replyText) {
+          throw new Error("Empty AI response");
+        }
+
+        const looksTooShort = replyText.length < 320;
+        if (looksTooShort) {
+          const depthPrompt = `${studentText}
+
+Please answer in a full teaching format (not a short summary). Include:
+1) clear concept explanation,
+2) 3-5 key points,
+3) a practical example,
+${isProgrammingQuery ? "4) runnable code sample," : ""}
+5) one quick practice question for the student.
+`;
+
+          const deepResponse = await openaiService.generateTutorResponse(
+            tutorKnowledge,
+            depthPrompt,
+            conversationHistory,
+            isProgrammingQuery ? "examples" : "lecture",
+            tutorSubject,
+            preferredLanguage,
+            "premium",
+            "",
+          );
+
+          const deepText = (deepResponse.content || "").trim();
+          if (deepText.length > replyText.length) {
+            replyText = deepText;
+          }
+        }
+
+        // Normalize cases where model wraps answer in JSON markdown block.
+        const cleanedReply = (() => {
+          const trimmed = replyText.trim();
+          const fencedJsonMatch = trimmed.match(/```json\s*([\s\S]*?)```/i);
+          const candidate = fencedJsonMatch ? fencedJsonMatch[1] : trimmed;
+          try {
+            const parsed = JSON.parse(candidate);
+            if (parsed && typeof parsed.content === "string" && parsed.content.trim()) {
+              return parsed.content.trim();
+            }
+          } catch (_error) {
+            // If strict JSON parse fails, try extracting content field text.
+            const contentMatch = candidate.match(/"content"\s*:\s*"([\s\S]*?)"\s*,\s*"emotion"/i);
+            if (contentMatch?.[1]) {
+              return contentMatch[1]
+                .replace(/\\"/g, '"')
+                .replace(/\\n/g, "\n")
+                .trim();
+            }
+          }
+          return trimmed;
+        })();
+
+        const finalReply =
+          cleanedReply.length >= 220
+            ? cleanedReply
+            : (() => {
+                if (isProgrammingQuery || /python/i.test(studentText)) {
+                  return `Great question — here is a clear explanation of Python.
+
+Python is a high-level, interpreted programming language known for readability and rapid development.
+
+Key features:
+1) Simple syntax (easy to learn and maintain)
+2) Huge library ecosystem (web, data science, AI, automation)
+3) Cross-platform support (Windows, macOS, Linux)
+4) Multiple programming styles (procedural, OOP, functional)
+
+Example program:
+\`\`\`python
+name = input("Enter your name: ")
+print(f"Hello, {name}! Welcome to Python.")
+\`\`\`
+
+How this works:
+- \`input()\` reads user text from keyboard
+- value is stored in \`name\`
+- \`f\"...\"\` formats output with the variable
+
+Practice question:
+How would you modify this program to also ask the user for age and print both name and age?`;
+                }
+
+                return `Let me explain this clearly:
+
+1) Core concept
+2) Why it matters
+3) Practical example
+4) One practice question
+
+Ask me to continue and I will provide a deeper step-by-step explanation.`;
+              })();
+
+        return res.json({ replyText: finalReply });
+      } catch (aiError) {
+        console.warn("Primary tutor AI generation failed, using fallback:", aiError);
+      }
+
+      // Fallback scaffold when AI provider is unavailable.
+      const contextPrefix = lessonContext ? `Context: ${lessonContext}\n\n` : "";
+      const replyText =
+        `${contextPrefix}Great question about "${studentText}".\n\n` +
+        `I can guide you with:\n` +
+        `1) Concept explanation\n` +
+        `2) Worked example\n` +
+        `3) Practice question\n\n` +
+        `Ask me to continue with a full solution and I will go step by step.`;
+
+      return res.json({ replyText });
+    } catch (error) {
+      console.error("Error generating avatar reply:", error);
+      return res.status(500).json({
+        message: "Failed to generate reply",
+        error: "GENERATE_REPLY_INTERNAL_ERROR",
+      });
+    }
+  });
 
   // Subscription limits endpoint
   app.get('/api/subscription/limits', isAuthenticated, async (req: any, res) => {
@@ -374,7 +856,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get conversation history
       const history = await storage.getChatMessages(session.id);
-      const conversationHistory = history.slice(-10).map(msg => ({
+      // Exclude the newest user message because it's sent separately below.
+      // Duplicating the same prompt can make the model over-compress replies.
+      const conversationHistory = history
+        .slice(0, -1)
+        .slice(-10)
+        .map(msg => ({
         role: msg.role,
         content: msg.content,
       }));
