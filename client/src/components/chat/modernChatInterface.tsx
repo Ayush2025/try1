@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { TutorTeachingStage } from "./tutorTeachingStage";
-import { TeacherAvatar } from "./simliTeacherAvatar";
+import { TeacherAvatar } from "./anamTeacherAvatar";
 
 import { 
   Send, 
@@ -104,6 +104,8 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
   const stageBoardTheme: "black" | "green" = classroomStage.boardTheme === "black" ? "black" : "green";
   const stageEmbedUrl: string = classroomStage.modelEmbedUrl || "";
   const stageSimliFaceId: string = classroomStage.simliFaceId || classroomStage.heygenAvatarId || "";
+  const stageAnamAvatarId: string = classroomStage.anamAvatarId || stageSimliFaceId || "";
+  const stageAnamVoiceId: string = classroomStage.anamVoiceId || classroomStage.heygenVoiceId || "";
 
   // Theme management
   useEffect(() => {
@@ -462,7 +464,7 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
                 {tutor.name || "AI Teacher"}
               </h1>
               <p className="text-xs text-slate-600 dark:text-slate-300">
-                {tutor.subject || "General"} · HeyGen Classroom Mode
+                {tutor.subject || "General"} · Anam Classroom Mode
               </p>
             </div>
             <div className="w-40">
@@ -484,9 +486,10 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
 
         <div className="flex-1 min-h-0 max-w-5xl w-full mx-auto p-2 md:p-4">
           <TeacherAvatar
-            faceId={stageSimliFaceId || undefined}
+            avatarId={stageAnamAvatarId || undefined}
+            voiceId={stageAnamVoiceId || undefined}
             tutorId={Number(tutor.id)}
-            language={selectedLanguage === "Hindi" ? "hi" : "en"}
+            languageCode={selectedLanguage === "Hindi" ? "hi-IN" : "en-US"}
             lessonContext={`Tutor subject: ${tutor.subject || "General"}`}
             className="h-full"
           />
@@ -651,9 +654,10 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
             />
 
             <TeacherAvatar
-              faceId={stageSimliFaceId || undefined}
+              avatarId={stageAnamAvatarId || undefined}
+              voiceId={stageAnamVoiceId || undefined}
               tutorId={Number(tutor.id)}
-              language={selectedLanguage === "Hindi" ? "hi" : "en"}
+              languageCode={selectedLanguage === "Hindi" ? "hi-IN" : "en-US"}
               lessonContext={`Tutor subject: ${tutor.subject || "General"}`}
             />
 

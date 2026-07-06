@@ -72,6 +72,101 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Authentication routes are now handled in setupAuth
 
+  // Anam session token endpoint (server-side only).
+  // Never expose ANAM_API_KEY to the browser.
+  app.post("/api/session-token", async (req, res) => {
+    try {
+      const anamApiKey = process.env.ANAM_API_KEY;
+      if (!anamApiKey) {
+        return res.status(500).json({
+          message: "ANAM_API_KEY is not configured on the server",
+          error: "MISSING_ANAM_API_KEY",
+        });
+      }
+
+      const avatarId = String(req.body?.avatarId || process.env.ANAM_AVATAR_ID || "").trim();
+      const voiceId = String(req.body?.voiceId || process.env.ANAM_VOICE_ID || "").trim();
+      const languageCode = String(
+        req.body?.languageCode || process.env.ANAM_LANGUAGE_CODE || "",
+      ).trim();
+      const lessonContext = String(req.body?.lessonContext || "").trim();
+      const systemPromptInput = String(req.body?.systemPrompt || "").trim();
+      const systemPrompt =
+        systemPromptInput ||
+        `You are an engaging, patient teacher avatar. Teach clearly, step by step, and adapt explanations to the student's level.${lessonContext ? ` Lesson context: ${lessonContext}` : ""}`;
+
+      if (!avatarId) {
+        return res.status(400).json({
+          message: "avatarId is required (or set ANAM_AVATAR_ID in env)",
+          error: "MISSING_ANAM_AVATAR_ID",
+        });
+      }
+      if (!voiceId) {
+        return res.status(400).json({
+          message: "voiceId is required (or set ANAM_VOICE_ID in env)",
+          error: "MISSING_ANAM_VOICE_ID",
+        });
+      }
+
+      const anamResponse = await fetch("https://api.anam.ai/v1/auth/session-token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${anamApiKey}`,
+        },
+        body: JSON.stringify({
+          personaConfig: {
+            avatarId,
+            voiceId,
+            llmId: "CUSTOMER_CLIENT_V1",
+            systemPrompt,
+            ...(languageCode ? { languageCode } : {}),
+          },
+        }),
+      });
+
+      const responseText = await anamResponse.text();
+      let responseJson: any = null;
+      try {
+        responseJson = responseText ? JSON.parse(responseText) : null;
+      } catch (_error) {
+        responseJson = null;
+      }
+
+      if (!anamResponse.ok) {
+        return res.status(anamResponse.status).json({
+          message:
+            responseJson?.message || responseJson?.error || "Failed to create Anam session token",
+          error: "ANAM_SESSION_TOKEN_REQUEST_FAILED",
+          details: responseJson ?? responseText,
+        });
+      }
+
+      const sessionToken =
+        responseJson?.sessionToken ||
+        responseJson?.data?.sessionToken ||
+        responseJson?.token ||
+        responseJson?.data?.token ||
+        null;
+
+      if (!sessionToken) {
+        return res.status(502).json({
+          message: "Anam response did not include a session token",
+          error: "ANAM_INVALID_TOKEN_RESPONSE",
+          details: responseJson,
+        });
+      }
+
+      return res.json({ sessionToken });
+    } catch (error) {
+      console.error("Error creating Anam session token:", error);
+      return res.status(500).json({
+        message: "Failed to create Anam session token",
+        error: "ANAM_SESSION_TOKEN_INTERNAL_ERROR",
+      });
+    }
+  });
+
   // Simli session token endpoint (server-side only).
   // Never expose SIMLI_API_KEY to the browser.
   app.post("/api/get-simli-token", async (req, res) => {
@@ -268,7 +363,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Placeholder LLM response route for avatar voice/text flow.
   app.post("/api/generate-reply", async (req, res) => {
     try {
-      const studentText = String(req.body?.studentText || "").trim();
+      const rawHistory = Array.isArray(req.body?.history)
+        ? req.body.history
+            .map((message: any) => ({
+              role: String(message?.role || "").trim().toLowerCase(),
+              content: String(message?.content || "").trim(),
+            }))
+            .filter(
+              (message: { role: string; content: string }) =>
+                (message.role === "user" ||
+                  message.role === "assistant" ||
+                  message.role === "persona" ||
+                  message.role === "system") &&
+                Boolean(message.content),
+            )
+        : [];
+
+      const lastUserMessage = [...rawHistory].reverse().find((message) => message.role === "user");
+      const studentText = String(lastUserMessage?.content || req.body?.studentText || "").trim();
       const lessonContext = String(req.body?.lessonContext || "").trim();
       const preferredLanguage = String(req.body?.language || "English").trim();
       const tutorId = Number(req.body?.tutorId);
@@ -282,6 +394,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       let tutorSubject = "General";
       let tutorKnowledge = lessonContext || "General tutoring context";
+      const conversationHistory = rawHistory.slice(-12).map((message) => ({
+        role: message.role === "assistant" || message.role === "persona" ? "assistant" : "user",
+        content: message.content,
+      }));
 
       if (!Number.isNaN(tutorId) && tutorId > 0) {
         const tutor = await storage.getTutorByIdWithContent(tutorId);
@@ -296,6 +412,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       try {
+        // TODO(LLM): Replace this provider call with your own model orchestration.
+        // Route contract already supports Anam voice mode by accepting full `history`
+        // and can be upgraded to streaming without changing client payload shape.
         const isProgrammingQuery = /\b(code|program|python|javascript|java|c\+\+|function|algorithm|script)\b/i.test(
           studentText,
         );
@@ -304,7 +423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const aiResponse = await openaiService.generateTutorResponse(
           tutorKnowledge,
           studentText,
-          [],
+          conversationHistory,
           isBroadExplainQuery ? "lecture" : "chat",
           tutorSubject,
           preferredLanguage,
@@ -332,7 +451,7 @@ ${isProgrammingQuery ? "4) runnable code sample," : ""}
           const deepResponse = await openaiService.generateTutorResponse(
             tutorKnowledge,
             depthPrompt,
-            [],
+            conversationHistory,
             isProgrammingQuery ? "examples" : "lecture",
             tutorSubject,
             preferredLanguage,
