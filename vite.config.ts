@@ -27,7 +27,7 @@ export default defineConfig({
     emptyOutDir: true,
   },
   optimizeDeps: {
-    exclude: ["simli-client"],
+    include: ["simli-client/dist/client.js"],
   },
   server: {
     fs: {
