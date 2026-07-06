@@ -374,7 +374,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Get conversation history
       const history = await storage.getChatMessages(session.id);
-      const conversationHistory = history.slice(-10).map(msg => ({
+      // Exclude the newest user message because it's sent separately below.
+      // Duplicating the same prompt can make the model over-compress replies.
+      const conversationHistory = history
+        .slice(0, -1)
+        .slice(-10)
+        .map(msg => ({
         role: msg.role,
         content: msg.content,
       }));
