@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { TutorTeachingStage } from "./tutorTeachingStage";
-import { TeacherAvatar } from "./teacherAvatar";
+import { TeacherAvatar } from "./simliTeacherAvatar";
 
 import { 
   Send, 
@@ -103,8 +103,7 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
   const classroomStage = tutorBranding.classroomStage || {};
   const stageBoardTheme: "black" | "green" = classroomStage.boardTheme === "black" ? "black" : "green";
   const stageEmbedUrl: string = classroomStage.modelEmbedUrl || "";
-  const stageHeygenAvatarId: string = classroomStage.heygenAvatarId || "";
-  const stageHeygenVoiceId: string = classroomStage.heygenVoiceId || "";
+  const stageSimliFaceId: string = classroomStage.simliFaceId || classroomStage.heygenAvatarId || "";
 
   // Theme management
   useEffect(() => {
@@ -485,9 +484,8 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
 
         <div className="flex-1 min-h-0 max-w-5xl w-full mx-auto p-2 md:p-4">
           <TeacherAvatar
-            avatarId={stageHeygenAvatarId || undefined}
+            faceId={stageSimliFaceId || undefined}
             tutorId={Number(tutor.id)}
-            voiceId={stageHeygenVoiceId || undefined}
             language={selectedLanguage === "Hindi" ? "hi" : "en"}
             lessonContext={`Tutor subject: ${tutor.subject || "General"}`}
             className="h-full"
@@ -653,8 +651,8 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
             />
 
             <TeacherAvatar
-              avatarId={stageHeygenAvatarId || undefined}
-              voiceId={stageHeygenVoiceId || undefined}
+              faceId={stageSimliFaceId || undefined}
+              tutorId={Number(tutor.id)}
               language={selectedLanguage === "Hindi" ? "hi" : "en"}
               lessonContext={`Tutor subject: ${tutor.subject || "General"}`}
             />

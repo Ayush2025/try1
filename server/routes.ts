@@ -6,6 +6,7 @@ import fs from "fs";
 import zlib from "zlib";
 import { nanoid } from "nanoid";
 import Razorpay from "razorpay";
+import { generateSimliSessionToken } from "simli-client/dist/client.js";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
 import { openaiService } from "./services/openai";
@@ -70,6 +71,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Authentication routes are now handled in setupAuth
+
+  // Simli session token endpoint (server-side only).
+  // Never expose SIMLI_API_KEY to the browser.
+  app.post("/api/get-simli-token", async (req, res) => {
+    try {
+      const apiKey = process.env.SIMLI_API_KEY;
+      const faceId = String(req.body?.faceId || process.env.SIMLI_FACE_ID || "").trim();
+      if (!apiKey) {
+        return res.status(500).json({
+          message: "SIMLI_API_KEY is not configured on the server",
+          error: "MISSING_SIMLI_API_KEY",
+        });
+      }
+      if (!faceId) {
+        return res.status(400).json({
+          message: "faceId is required (or set SIMLI_FACE_ID in env)",
+          error: "MISSING_SIMLI_FACE_ID",
+        });
+      }
+
+      const tokenResponse = await generateSimliSessionToken({
+        apiKey,
+        config: {
+          faceId,
+          handleSilence: true,
+          maxSessionLength: 1800,
+          maxIdleTime: 120,
+          model: "fasttalk",
+        },
+      });
+
+      if (!tokenResponse?.session_token) {
+        return res.status(502).json({
+          message: "Simli token response missing session token",
+          error: "SIMLI_INVALID_TOKEN_RESPONSE",
+        });
+      }
+
+      return res.json({ token: tokenResponse.session_token });
+    } catch (error) {
+      console.error("Error creating Simli session token:", error);
+      return res.status(500).json({
+        message: "Failed to create Simli session token",
+        error: "SIMLI_TOKEN_REQUEST_FAILED",
+      });
+    }
+  });
+
+  // TTS route scaffold for Simli lip-sync pipeline.
+  // Returns raw WAV bytes (16-bit PCM mono, 16kHz) for local testing.
+  // TODO: Replace with your provider call and convert provider output
+  // to a Simli-compatible format before returning (sample-rate/encoding as needed).
+  app.post("/api/tts", async (req, res) => {
+    try {
+      const text = String(req.body?.text || "").trim();
+      if (!text) {
+        return res.status(400).json({
+          message: "text is required",
+          error: "MISSING_TEXT",
+        });
+      }
+
+      const durationSeconds = Math.min(8, Math.max(1, Math.ceil(text.length / 20)));
+      const sampleRate = 16000;
+      const numChannels = 1;
+      const bitsPerSample = 16;
+      const bytesPerSample = bitsPerSample / 8;
+      const totalSamples = sampleRate * durationSeconds;
+      const dataSize = totalSamples * numChannels * bytesPerSample;
+      const wavBuffer = Buffer.alloc(44 + dataSize);
+
+      // WAV header
+      wavBuffer.write("RIFF", 0);
+      wavBuffer.writeUInt32LE(36 + dataSize, 4);
+      wavBuffer.write("WAVE", 8);
+      wavBuffer.write("fmt ", 12);
+      wavBuffer.writeUInt32LE(16, 16); // PCM chunk size
+      wavBuffer.writeUInt16LE(1, 20); // PCM format
+      wavBuffer.writeUInt16LE(numChannels, 22);
+      wavBuffer.writeUInt32LE(sampleRate, 24);
+      wavBuffer.writeUInt32LE(sampleRate * numChannels * bytesPerSample, 28);
+      wavBuffer.writeUInt16LE(numChannels * bytesPerSample, 32);
+      wavBuffer.writeUInt16LE(bitsPerSample, 34);
+      wavBuffer.write("data", 36);
+      wavBuffer.writeUInt32LE(dataSize, 40);
+
+      // Simple low-volume tone so pipeline has non-silent bytes in stub mode.
+      const frequency = 440;
+      for (let i = 0; i < totalSamples; i++) {
+        const t = i / sampleRate;
+        const sample = Math.floor(0.1 * 32767 * Math.sin(2 * Math.PI * frequency * t));
+        wavBuffer.writeInt16LE(sample, 44 + i * 2);
+      }
+
+      res.setHeader("Content-Type", "audio/wav");
+      res.setHeader("Cache-Control", "no-store");
+      return res.send(wavBuffer);
+    } catch (error) {
+      console.error("Error in /api/tts:", error);
+      return res.status(500).json({
+        message: "Failed to synthesize speech",
+        error: "TTS_INTERNAL_ERROR",
+      });
+    }
+  });
 
   // HeyGen / LiveAvatar session token endpoint.
   // Keeps API key server-side and returns only a short-lived session token.
