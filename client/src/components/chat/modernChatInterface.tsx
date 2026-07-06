@@ -486,6 +486,7 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
         <div className="flex-1 min-h-0 max-w-5xl w-full mx-auto p-2 md:p-4">
           <TeacherAvatar
             avatarId={stageHeygenAvatarId || undefined}
+            tutorId={Number(tutor.id)}
             voiceId={stageHeygenVoiceId || undefined}
             language={selectedLanguage === "Hindi" ? "hi" : "en"}
             lessonContext={`Tutor subject: ${tutor.subject || "General"}`}

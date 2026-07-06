@@ -28,6 +28,7 @@ export interface TeacherAvatarRef {
 
 interface TeacherAvatarProps {
   avatarId?: string;
+  tutorId?: number;
   voiceId?: string;
   language?: AvatarLanguage;
   quality?: "low" | "medium" | "high";
@@ -55,6 +56,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
   function TeacherAvatar(
     {
       avatarId,
+      tutorId,
       voiceId,
       language = "en",
       lessonContext,
@@ -75,6 +77,8 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
     const inactivityTimerRef = useRef<number | null>(null);
     const keepAliveTimerRef = useRef<number | null>(null);
     const reconnectTimerRef = useRef<number | null>(null);
+    const speakFallbackTimerRef = useRef<number | null>(null);
+    const avatarSpeechStartedRef = useRef(false);
     const reconnectAttemptsRef = useRef(0);
     const lastUserTranscriptRef = useRef("");
     const ignoreUserTranscriptsRef = useRef(false);
@@ -93,7 +97,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
     const [sessionState, setSessionState] = useState<SessionState>(SessionState.INACTIVE);
     const [isReplyPending, setIsReplyPending] = useState(false);
     const [boardText, setBoardText] = useState("");
-    const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+    const [latestQuestion, setLatestQuestion] = useState("");
 
     useEffect(() => {
       modeRef.current = mode;
@@ -150,11 +154,13 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
           setIsReplyPending(true);
           setErrorMessage("");
           markActivity();
-          setChatMessages((prev) => [...prev, { role: "user", text: trimmedText }]);
+          setLatestQuestion(trimmedText);
 
           const replyResponse = await apiRequest("POST", "/api/generate-reply", {
             studentText: trimmedText,
             lessonContext,
+            tutorId,
+            language: language === "hi" ? "Hindi" : "English",
           });
           const payload = (await replyResponse.json()) as GenerateReplyResponse;
           generatedReply = payload.replyText?.trim();
@@ -164,24 +170,56 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
 
           setReplyText(generatedReply);
           setBoardText(generatedReply);
-          setChatMessages((prev) => [...prev, { role: "assistant", text: generatedReply }]);
         } catch (error) {
           console.error("Failed to generate teacher reply:", error);
           setErrorMessage("Could not generate teacher reply. Please try again.");
           return;
         }
 
+        const speakInBrowser = () => {
+          if (!window.speechSynthesis) return false;
+          try {
+            const utterance = new SpeechSynthesisUtterance(generatedReply);
+            utterance.lang = language === "hi" ? "hi-IN" : "en-US";
+            utterance.rate = language === "hi" ? 0.95 : 1.0;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+            return true;
+          } catch (error) {
+            console.warn("Browser speech fallback failed:", error);
+            return false;
+          }
+        };
+
         try {
-          await sessionRef.current.repeat(generatedReply);
+          avatarSpeechStartedRef.current = false;
+          if (speakFallbackTimerRef.current) {
+            window.clearTimeout(speakFallbackTimerRef.current);
+          }
+          sessionRef.current.repeat(generatedReply);
+          sessionRef.current.message(generatedReply);
+          speakFallbackTimerRef.current = window.setTimeout(() => {
+            if (!avatarSpeechStartedRef.current) {
+              const fallbackStarted = speakInBrowser();
+              if (fallbackStarted) {
+                setErrorMessage("");
+              }
+            }
+          }, 1800);
           setErrorMessage("");
         } catch (error) {
           console.error("Failed to speak generated reply:", error);
-          setErrorMessage("Reply generated, but avatar voice failed. Text answer is shown on board and chat.");
+          const fallbackStarted = speakInBrowser();
+          if (fallbackStarted) {
+            setErrorMessage("");
+          } else {
+            setErrorMessage("Reply generated, but voice playback failed.");
+          }
         } finally {
           setIsReplyPending(false);
         }
       },
-      [lessonContext, markActivity],
+      [lessonContext, markActivity, tutorId, language],
     );
 
     const speak = useCallback(
@@ -195,9 +233,9 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         markActivity();
         setReplyText(cleaned);
         setBoardText(cleaned);
-        setChatMessages((prev) => [...prev, { role: "assistant", text: cleaned }]);
         try {
-          await sessionRef.current.repeat(cleaned);
+          sessionRef.current.repeat(cleaned);
+          sessionRef.current.message(cleaned);
           setErrorMessage("");
         } catch (error) {
           console.error("Failed to speak manual reply:", error);
@@ -294,6 +332,11 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         });
 
         session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, () => {
+          avatarSpeechStartedRef.current = true;
+          if (speakFallbackTimerRef.current) {
+            window.clearTimeout(speakFallbackTimerRef.current);
+            speakFallbackTimerRef.current = null;
+          }
           setIsAvatarSpeaking(true);
           ignoreUserTranscriptsRef.current = true;
           onAvatarStartTalking?.();
@@ -409,6 +452,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
         if (reconnectTimerRef.current) window.clearTimeout(reconnectTimerRef.current);
         if (keepAliveTimerRef.current) window.clearInterval(keepAliveTimerRef.current);
+        if (speakFallbackTimerRef.current) window.clearTimeout(speakFallbackTimerRef.current);
         stopVoiceMode();
         void closeSession();
       };
@@ -480,28 +524,12 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         </div>
 
         <div className="min-h-0 flex-1 rounded-lg border bg-background/70 flex flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-2">
-            {chatMessages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Start chatting below. Replies will also be written on the board.
-              </p>
-            ) : (
-              chatMessages.map((message, idx) => (
-                <div
-                  key={`${message.role}-${idx}`}
-                  className={`max-w-[92%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
-                    message.role === "user"
-                      ? "ml-auto bg-blue-600 text-white"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
-                  }`}
-                >
-                  {message.text}
-                </div>
-              ))
-            )}
-          </div>
-
           <div className="border-t p-3 space-y-2">
+            {latestQuestion && (
+              <div className="text-xs text-muted-foreground">
+                Latest question: <span className="font-medium">{latestQuestion}</span>
+              </div>
+            )}
             {mode === "text" ? (
               <form
                 className="space-y-2"
@@ -538,12 +566,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
                 <Input readOnly value={voiceTranscript} placeholder="Your transcript appears here..." />
               </div>
             )}
-            {replyText && (
-              <div className="text-xs text-muted-foreground">
-                Latest tutor reply is shown above and on the board.
-              </div>
-            )}
-            </div>
+          </div>
           </div>
       </div>
     );

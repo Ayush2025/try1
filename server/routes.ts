@@ -164,6 +164,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const studentText = String(req.body?.studentText || "").trim();
       const lessonContext = String(req.body?.lessonContext || "").trim();
+      const preferredLanguage = String(req.body?.language || "English").trim();
+      const tutorId = Number(req.body?.tutorId);
 
       if (!studentText) {
         return res.status(400).json({
@@ -172,17 +174,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // TODO: Replace this deterministic scaffold with your own LLM + RAG pipeline.
-      const contextPrefix = lessonContext
-        ? `Context: ${lessonContext}\n\n`
-        : "";
+      let tutorSubject = "General";
+      let tutorKnowledge = lessonContext || "General tutoring context";
+
+      if (!Number.isNaN(tutorId) && tutorId > 0) {
+        const tutor = await storage.getTutorByIdWithContent(tutorId);
+        if (tutor) {
+          tutorSubject = tutor.subject || tutorSubject;
+          const contentBlob = (tutor.content || [])
+            .map((item: any) => item?.content || "")
+            .filter(Boolean)
+            .join("\n\n");
+          tutorKnowledge = contentBlob || lessonContext || `Tutor subject: ${tutorSubject}`;
+        }
+      }
+
+      try {
+        const aiResponse = await openaiService.generateTutorResponse(
+          tutorKnowledge,
+          studentText,
+          [],
+          "chat",
+          tutorSubject,
+          preferredLanguage,
+          "premium",
+          "",
+        );
+
+        const replyText = (aiResponse.content || "").trim();
+        if (!replyText) {
+          throw new Error("Empty AI response");
+        }
+        return res.json({ replyText });
+      } catch (aiError) {
+        console.warn("Primary tutor AI generation failed, using fallback:", aiError);
+      }
+
+      // Fallback scaffold when AI provider is unavailable.
+      const contextPrefix = lessonContext ? `Context: ${lessonContext}\n\n` : "";
       const replyText =
-        `${contextPrefix}Great question. Here is a teaching-style answer to your request: "${studentText}".\n\n` +
-        `Let me break this down step by step:\n` +
-        `1) Core concept and definition\n` +
-        `2) A practical example\n` +
-        `3) A quick check-for-understanding question\n\n` +
-        `Would you like me to go deeper with examples or practice questions?`;
+        `${contextPrefix}Great question about "${studentText}".\n\n` +
+        `I can guide you with:\n` +
+        `1) Concept explanation\n` +
+        `2) Worked example\n` +
+        `3) Practice question\n\n` +
+        `Ask me to continue with a full solution and I will go step by step.`;
 
       return res.json({ replyText });
     } catch (error) {
