@@ -451,6 +451,50 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
     "Japanese", "Korean", "Chinese", "Arabic"
   ];
 
+  const useHeygenOnlyLayout = true;
+
+  if (useHeygenOnlyLayout) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+        <div className="sticky top-0 z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-700">
+          <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-bold text-slate-900 dark:text-white">
+                {tutor.name || "AI Teacher"}
+              </h1>
+              <p className="text-xs text-slate-600 dark:text-slate-300">
+                {tutor.subject || "General"} · HeyGen Classroom Mode
+              </p>
+            </div>
+            <div className="w-40">
+              <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+                <SelectTrigger className="h-9 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {languages.map((lang) => (
+                    <SelectItem key={lang} value={lang} className="text-xs">
+                      {lang}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-5xl mx-auto p-3 md:p-6">
+          <TeacherAvatar
+            avatarId={stageHeygenAvatarId || undefined}
+            voiceId={stageHeygenVoiceId || undefined}
+            language={selectedLanguage === "Hindi" ? "hi" : "en"}
+            lessonContext={`Tutor subject: ${tutor.subject || "General"}`}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="chat-interface flex flex-col h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Header */}

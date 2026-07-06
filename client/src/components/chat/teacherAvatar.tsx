@@ -75,6 +75,8 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
     const lastUserTranscriptRef = useRef("");
     const ignoreUserTranscriptsRef = useRef(false);
     const isSessionClosingRef = useRef(false);
+    const modeRef = useRef<InteractionMode>("text");
+    const isListeningRef = useRef(false);
     const [mode, setMode] = useState<InteractionMode>("text");
     const [textQuestion, setTextQuestion] = useState("");
     const [voiceTranscript, setVoiceTranscript] = useState("");
@@ -86,6 +88,14 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
     const [errorMessage, setErrorMessage] = useState("");
     const [sessionState, setSessionState] = useState<SessionState>(SessionState.INACTIVE);
     const [isReplyPending, setIsReplyPending] = useState(false);
+
+    useEffect(() => {
+      modeRef.current = mode;
+    }, [mode]);
+
+    useEffect(() => {
+      isListeningRef.current = isListening;
+    }, [isListening]);
 
     const markActivity = useCallback(() => {
       if (inactivityTimerRef.current) {
@@ -224,7 +234,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
           setIsAvatarSpeaking(true);
           ignoreUserTranscriptsRef.current = true;
           onAvatarStartTalking?.();
-          if (sessionRef.current && isListening) {
+          if (sessionRef.current && isListeningRef.current) {
             void sessionRef.current.voiceChat.mute();
           }
         });
@@ -233,7 +243,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
           setIsAvatarSpeaking(false);
           ignoreUserTranscriptsRef.current = false;
           onAvatarEndMessage?.();
-          if (sessionRef.current && isListening) {
+          if (sessionRef.current && isListeningRef.current) {
             void sessionRef.current.voiceChat.unmute();
           }
         });
@@ -265,7 +275,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
           }
           lastUserTranscriptRef.current = finalTranscript;
           setVoiceTranscript(finalTranscript);
-          if (mode === "voice") {
+          if (modeRef.current === "voice") {
             void fetchReplyAndSpeak(finalTranscript);
           }
         });
@@ -288,7 +298,6 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
       avatarId,
       voiceId,
       language,
-      mode,
       fetchReplyAndSpeak,
       markActivity,
       onAvatarEndMessage,
@@ -298,7 +307,6 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
       onUserStart,
       onUserStop,
       resetSilenceTimer,
-      isListening,
     ]);
 
     const startVoiceMode = useCallback(async () => {
@@ -339,7 +347,9 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         stopVoiceMode();
         void closeSession();
       };
-    }, [connectSession, closeSession, stopVoiceMode]);
+      // Intentionally run once to avoid reconnect/disconnect loops on local UI state changes.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const languageLabel = language === "hi" ? "Hindi" : "English";
     const sdkLanguage = language === "hi" ? Language.hi : Language.en;
