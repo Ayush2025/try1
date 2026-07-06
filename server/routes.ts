@@ -85,6 +85,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const avatarId = String(req.body?.avatarId || process.env.ANAM_AVATAR_ID || "").trim();
+      const personaId = String(req.body?.personaId || process.env.ANAM_PERSONA_ID || "").trim();
       const voiceId = String(req.body?.voiceId || process.env.ANAM_VOICE_ID || "").trim();
       const languageCode = String(
         req.body?.languageCode || process.env.ANAM_LANGUAGE_CODE || "",
@@ -95,10 +96,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         systemPromptInput ||
         `You are an engaging, patient teacher avatar. Teach clearly, step by step, and adapt explanations to the student's level.${lessonContext ? ` Lesson context: ${lessonContext}` : ""}`;
 
-      if (!avatarId) {
+      if (!avatarId && !personaId) {
         return res.status(400).json({
-          message: "avatarId is required (or set ANAM_AVATAR_ID in env)",
-          error: "MISSING_ANAM_AVATAR_ID",
+          message: "avatarId or personaId is required (set ANAM_AVATAR_ID or ANAM_PERSONA_ID)",
+          error: "MISSING_ANAM_ENTITY_ID",
         });
       }
       if (!voiceId) {
@@ -108,22 +109,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const anamResponse = await fetch("https://api.anam.ai/v1/auth/session-token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${anamApiKey}`,
-        },
-        body: JSON.stringify({
-          personaConfig: {
-            avatarId,
-            voiceId,
-            llmId: "CUSTOMER_CLIENT_V1",
-            systemPrompt,
-            ...(languageCode ? { languageCode } : {}),
+      const requestSessionToken = async (entityConfig: Record<string, string>) =>
+        fetch("https://api.anam.ai/v1/auth/session-token", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${anamApiKey}`,
           },
-        }),
-      });
+          body: JSON.stringify({
+            clientLabel: "brainmate-anam-client",
+            personaConfig: {
+              ...entityConfig,
+              voiceId,
+              llmId: "CUSTOMER_CLIENT_V1",
+              systemPrompt,
+              ...(languageCode ? { languageCode } : {}),
+            },
+          }),
+        });
+
+      let anamResponse = await requestSessionToken(
+        avatarId ? { avatarId } : { personaId },
+      );
 
       const responseText = await anamResponse.text();
       let responseJson: any = null;
@@ -134,11 +141,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       if (!anamResponse.ok) {
+        const providerMessage = String(responseJson?.message || responseJson?.error || "");
+        const shouldRetryAsPersonaId =
+          !personaId &&
+          avatarId &&
+          anamResponse.status === 400 &&
+          /persona id/i.test(providerMessage) &&
+          /avatarid/i.test(providerMessage.replace(/\s+/g, ""));
+
+        if (shouldRetryAsPersonaId) {
+          anamResponse = await requestSessionToken({ personaId: avatarId });
+          const retryText = await anamResponse.text();
+          try {
+            responseJson = retryText ? JSON.parse(retryText) : null;
+          } catch (_error) {
+            responseJson = null;
+          }
+        }
+      }
+
+      if (!anamResponse.ok) {
         return res.status(anamResponse.status).json({
-          message:
-            responseJson?.message || responseJson?.error || "Failed to create Anam session token",
+          message: responseJson?.message || responseJson?.error || "Failed to create Anam session token",
           error: "ANAM_SESSION_TOKEN_REQUEST_FAILED",
-          details: responseJson ?? responseText,
+          details: responseJson,
         });
       }
 

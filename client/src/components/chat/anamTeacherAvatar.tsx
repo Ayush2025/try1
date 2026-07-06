@@ -92,6 +92,17 @@ const parseJsonResponse = async <T>(response: Response, endpoint: string): Promi
   return parsed;
 };
 
+const formatAnamErrorMessage = (error: unknown, fallback: string) => {
+  if (!error) return fallback;
+  const anyError = error as any;
+  const base =
+    String(anyError?.details?.cause || anyError?.message || anyError?.cause || "").trim() || fallback;
+  if (/concurrent session limit/i.test(base)) {
+    return "Anam concurrent session limit reached. Disconnect other active sessions (or wait a minute) and try Connect again.";
+  }
+  return base;
+};
+
 export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(function TeacherAvatar(
   {
     avatarId,
@@ -112,7 +123,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
   const lastHandledUserMessageIdRef = useRef<string>("");
 
   const [mode, setMode] = useState<InteractionMode>("text");
-  const [status, setStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
+  const [status, setStatus] = useState<"connecting" | "connected" | "disconnected">("disconnected");
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
   const [isMicActive, setIsMicActive] = useState(false);
@@ -229,7 +240,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
         setBoardText(cleaned);
         await client.talk(cleaned);
       } catch (error: any) {
-        setErrorMessage(String(error?.message || "Failed to send text to avatar"));
+        setErrorMessage(formatAnamErrorMessage(error, "Failed to send text to avatar"));
       } finally {
         setIsReplying(false);
       }
@@ -355,9 +366,15 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
       resetIdleTimer();
     } catch (error: any) {
       console.error("Failed to start Anam session:", error);
+      try {
+        await anamRef.current?.stopStreaming();
+      } catch (_stopError) {
+        // no-op
+      }
+      anamRef.current = null;
       setStatus("disconnected");
       setIsVideoReady(false);
-      setErrorMessage(String(error?.message || "Failed to start Anam streaming session"));
+      setErrorMessage(formatAnamErrorMessage(error, "Failed to start Anam streaming session"));
     }
   }, [
     avatarId,
@@ -371,11 +388,10 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
   ]);
 
   useEffect(() => {
-    void startStreaming();
     return () => {
       void stopStreaming();
     };
-  }, [startStreaming, stopStreaming]);
+  }, [stopStreaming]);
 
   return (
     <div className={`h-full flex flex-col gap-3 p-3 md:p-4 border rounded-xl bg-card ${className || ""}`}>
@@ -411,7 +427,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
         </div>
       </div>
 
-      {(status === "connecting" || !isVideoReady) && (
+      {status === "connecting" && !isVideoReady && (
         <div className="text-sm rounded-md border border-blue-300 bg-blue-50 text-blue-700 px-3 py-2">
           Connecting...
         </div>
