@@ -24,6 +24,8 @@ const tutorFormSchema = z.object({
   boardTheme: z.enum(["black", "green"]).default("green"),
   tutorLanguageMode: z.enum(["english", "hindi", "bilingual"]).default("bilingual"),
   modelEmbedUrl: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
+  heygenAvatarId: z.string().optional(),
+  heygenVoiceId: z.string().optional(),
 });
 
 type TutorFormData = z.infer<typeof tutorFormSchema>;
@@ -56,6 +58,8 @@ export function CreateTutorForm({ onSuccess }: CreateTutorFormProps) {
       boardTheme: "green",
       tutorLanguageMode: "bilingual",
       modelEmbedUrl: "",
+      heygenAvatarId: "",
+      heygenVoiceId: "",
     },
   });
 
@@ -77,6 +81,8 @@ export function CreateTutorForm({ onSuccess }: CreateTutorFormProps) {
           classroomStage: {
             boardTheme: data.boardTheme,
             modelEmbedUrl: data.modelEmbedUrl || "",
+            heygenAvatarId: data.heygenAvatarId || "",
+            heygenVoiceId: data.heygenVoiceId || "",
             framing: "waist-up-with-board",
           },
         },
@@ -303,6 +309,39 @@ export function CreateTutorForm({ onSuccess }: CreateTutorFormProps) {
                 </FormItem>
               )}
             />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="heygenAvatarId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>HeyGen Avatar ID (optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 28ea726f665349f..." {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      If set, chat can use real-time HeyGen teacher session for this tutor.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="heygenVoiceId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>HeyGen Voice ID (optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="HeyGen voice id" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField

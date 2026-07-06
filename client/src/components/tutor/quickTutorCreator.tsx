@@ -72,6 +72,8 @@ export function QuickTutorCreator({ onSuccess, onCancel }: QuickTutorCreatorProp
           classroomStage: {
             boardTheme: "green",
             modelEmbedUrl: "",
+            heygenAvatarId: "",
+            heygenVoiceId: "",
             framing: "waist-up-with-board",
           },
         },

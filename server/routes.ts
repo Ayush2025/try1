@@ -71,6 +71,129 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Authentication routes are now handled in setupAuth
 
+  // HeyGen / LiveAvatar session token endpoint.
+  // Keeps API key server-side and returns only a short-lived session token.
+  app.post("/api/get-access-token", async (req, res) => {
+    try {
+      const apiKey = process.env.HEYGEN_API_KEY || process.env.LIVEAVATAR_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({
+          message: "HEYGEN_API_KEY is not configured on the server",
+          error: "MISSING_HEYGEN_API_KEY",
+        });
+      }
+
+      const avatarId = req.body?.avatarId || process.env.HEYGEN_AVATAR_ID || "28ea726f665349f3878b5188ccb4d1bf";
+      const voiceId = req.body?.voiceId || process.env.HEYGEN_VOICE_ID;
+      const language = req.body?.language || "en";
+      const mode = req.body?.mode || "LITE";
+      const activityIdleTimeout = Number(req.body?.activityIdleTimeout ?? 180);
+
+      const tokenPayload: Record<string, any> = {
+        mode,
+        avatar_id: avatarId,
+        activity_idle_timeout:
+          Number.isFinite(activityIdleTimeout) && activityIdleTimeout >= 30 && activityIdleTimeout <= 3600
+            ? activityIdleTimeout
+            : 180,
+      };
+
+      if (voiceId || language) {
+        tokenPayload.avatar_persona = {
+          ...(voiceId ? { voice_id: voiceId } : {}),
+          ...(language ? { language } : {}),
+        };
+      }
+
+      const tokenResponse = await fetch("https://api.liveavatar.com/v1/sessions/token", {
+        method: "POST",
+        headers: {
+          "X-API-KEY": apiKey,
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(tokenPayload),
+      });
+
+      const responseText = await tokenResponse.text();
+      let responseJson: any = null;
+      try {
+        responseJson = responseText ? JSON.parse(responseText) : null;
+      } catch (_error) {
+        responseJson = null;
+      }
+
+      if (!tokenResponse.ok) {
+        const providerMessage =
+          responseJson?.message ||
+          responseJson?.error ||
+          "Failed to create LiveAvatar access token";
+        return res.status(tokenResponse.status).json({
+          message: providerMessage,
+          error: "HEYGEN_TOKEN_REQUEST_FAILED",
+          details: responseJson ?? responseText,
+        });
+      }
+
+      const sessionToken = responseJson?.data?.session_token || responseJson?.session_token || null;
+      const sessionId = responseJson?.data?.session_id || responseJson?.session_id || null;
+
+      if (!sessionToken) {
+        return res.status(502).json({
+          message: "LiveAvatar token response did not include a session token",
+          error: "HEYGEN_INVALID_TOKEN_RESPONSE",
+          details: responseJson,
+        });
+      }
+
+      return res.json({
+        sessionToken,
+        sessionId,
+      });
+    } catch (error) {
+      console.error("Error generating HeyGen access token:", error);
+      return res.status(500).json({
+        message: "Failed to generate HeyGen access token",
+        error: "HEYGEN_TOKEN_INTERNAL_ERROR",
+      });
+    }
+  });
+
+  // Placeholder LLM response route for avatar voice/text flow.
+  app.post("/api/generate-reply", async (req, res) => {
+    try {
+      const studentText = String(req.body?.studentText || "").trim();
+      const lessonContext = String(req.body?.lessonContext || "").trim();
+
+      if (!studentText) {
+        return res.status(400).json({
+          message: "studentText is required",
+          error: "MISSING_STUDENT_TEXT",
+        });
+      }
+
+      // TODO: Replace this deterministic scaffold with your own LLM + RAG pipeline.
+      const contextPrefix = lessonContext
+        ? `Context: ${lessonContext}\n\n`
+        : "";
+      const replyText =
+        `${contextPrefix}Great question. Here is a teaching-style answer to your request: "${studentText}".\n\n` +
+        `Let me break this down step by step:\n` +
+        `1) Core concept and definition\n` +
+        `2) A practical example\n` +
+        `3) A quick check-for-understanding question\n\n` +
+        `Would you like me to go deeper with examples or practice questions?`;
+
+      return res.json({ replyText });
+    } catch (error) {
+      console.error("Error generating avatar reply:", error);
+      return res.status(500).json({
+        message: "Failed to generate reply",
+        error: "GENERATE_REPLY_INTERNAL_ERROR",
+      });
+    }
+  });
+
   // Subscription limits endpoint
   app.get('/api/subscription/limits', isAuthenticated, async (req: any, res) => {
     try {

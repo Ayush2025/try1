@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { TutorTeachingStage } from "./tutorTeachingStage";
+import { TeacherAvatar } from "./teacherAvatar";
 
 import { 
   Send, 
@@ -102,6 +103,8 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
   const classroomStage = tutorBranding.classroomStage || {};
   const stageBoardTheme: "black" | "green" = classroomStage.boardTheme === "black" ? "black" : "green";
   const stageEmbedUrl: string = classroomStage.modelEmbedUrl || "";
+  const stageHeygenAvatarId: string = classroomStage.heygenAvatarId || "";
+  const stageHeygenVoiceId: string = classroomStage.heygenVoiceId || "";
 
   // Theme management
   useEffect(() => {
@@ -602,6 +605,15 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
               isSpeaking={isSpeaking}
               latestTutorText={latestAssistantMessage}
             />
+
+            {stageHeygenAvatarId && (
+              <TeacherAvatar
+                avatarId={stageHeygenAvatarId}
+                voiceId={stageHeygenVoiceId || undefined}
+                language={selectedLanguage === "Hindi" ? "hi" : "en"}
+                lessonContext={`Tutor subject: ${tutor.subject || "General"}`}
+              />
+            )}
 
             {localMessages.length === 0 && !isTyping && (
               <div className="text-center py-12">

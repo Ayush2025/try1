@@ -12,6 +12,7 @@ import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import Dashboard from "@/pages/dashboard";
 import ChatPage from "@/pages/chat";
+import AvatarDemoPage from "@/pages/avatar-demo";
 
 import Subscription from "@/pages/subscription";
 import Contact from "@/pages/contact";
@@ -61,6 +62,7 @@ function Router() {
           <Route path="/login" component={Login} />
           <Route path="/signup" component={Signup} />
           <Route path="/chat/:tutorId" component={ChatPage} />
+          <Route path="/avatar-demo" component={AvatarDemoPage} />
           <Route path="/contact" component={Contact} />
           <Route path="/terms" component={Terms} />
           <Route path="/privacy" component={Privacy} />
@@ -70,6 +72,7 @@ function Router() {
         <>
           <Route path="/" component={Dashboard} />
           <Route path="/chat/:tutorId" component={ChatPage} />
+          <Route path="/avatar-demo" component={AvatarDemoPage} />
           <Route path="/subscription" component={Subscription} />
           <Route path="/contact" component={Contact} />
           <Route path="/terms" component={Terms} />
