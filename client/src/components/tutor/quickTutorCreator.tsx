@@ -62,6 +62,19 @@ export function QuickTutorCreator({ onSuccess, onCancel }: QuickTutorCreatorProp
         subject: data.subject,
         description: `AI tutor specializing in ${data.subject}`,
         isPublic: false,
+        avatarStyle: "platform-3d-tutor",
+        voiceSettings: {
+          languageMode: "bilingual",
+          supportsLipSync: true,
+          supportsHandAnimation: true,
+        },
+        branding: {
+          classroomStage: {
+            boardTheme: "green",
+            modelEmbedUrl: "",
+            framing: "waist-up-with-board",
+          },
+        },
       });
       const tutor = await tutorResponse.json();
 

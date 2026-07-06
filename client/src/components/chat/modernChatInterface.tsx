@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
+import { TutorTeachingStage } from "./tutorTeachingStage";
 
 import { 
   Send, 
@@ -95,6 +96,12 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
   });
   const [showUnity, setShowUnity] = useState(false);
   const [unityMode, setUnityMode] = useState<"split" | "pip">("split");
+
+  const latestAssistantMessage = [...localMessages].reverse().find((m) => m.role === "assistant")?.content || "";
+  const tutorBranding = (tutor.branding as any) || {};
+  const classroomStage = tutorBranding.classroomStage || {};
+  const stageBoardTheme: "black" | "green" = classroomStage.boardTheme === "black" ? "black" : "green";
+  const stageEmbedUrl: string = classroomStage.modelEmbedUrl || "";
 
   // Theme management
   useEffect(() => {
@@ -367,6 +374,13 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
     
     const utterance = new SpeechSynthesisUtterance(cleanText);
     speechSynthRef.current = utterance;
+    utterance.lang =
+      selectedLanguage === "Hindi"
+        ? "hi-IN"
+        : selectedLanguage === "English"
+        ? "en-US"
+        : "en-US";
+    utterance.rate = selectedLanguage === "Hindi" ? 0.92 : 1.0;
     
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
@@ -579,6 +593,16 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
         <div className={`flex-1 overflow-hidden min-w-0 ${showUnity && unityMode === "split" ? "border-r border-slate-200 dark:border-slate-700 w-1/2" : ""}`}>
         <ScrollArea className="h-full">
           <div className="max-w-4xl mx-auto p-4 space-y-4">
+            <TutorTeachingStage
+              tutorName={tutor.name || "Tutor"}
+              subject={tutor.subject}
+              modelEmbedUrl={stageEmbedUrl}
+              boardTheme={stageBoardTheme}
+              language={selectedLanguage}
+              isSpeaking={isSpeaking}
+              latestTutorText={latestAssistantMessage}
+            />
+
             {localMessages.length === 0 && !isTyping && (
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
