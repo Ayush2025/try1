@@ -56,6 +56,42 @@ const splitIntoChunks = (text: string, maxChars = 180): string[] => {
   return chunks;
 };
 
+const normalizeAnamLanguageCode = (languageCode?: string) => {
+  const normalized = String(languageCode || "").trim();
+  if (!normalized) return undefined;
+  if (/^en(-|_)?us$/i.test(normalized)) return "en";
+  if (/^hi(-|_)?in$/i.test(normalized)) return "hi";
+  return normalized;
+};
+
+const parseJsonResponse = async <T>(response: Response, endpoint: string): Promise<T> => {
+  const bodyText = await response.text();
+  let parsed: T | null = null;
+  try {
+    parsed = bodyText ? (JSON.parse(bodyText) as T) : null;
+  } catch (_error) {
+    parsed = null;
+  }
+
+  if (!response.ok) {
+    const message =
+      (parsed as any)?.message ||
+      (parsed as any)?.error ||
+      bodyText ||
+      `${endpoint} failed with status ${response.status}`;
+    throw new Error(String(message));
+  }
+
+  if (!parsed) {
+    const snippet = bodyText.slice(0, 140).replace(/\s+/g, " ");
+    throw new Error(
+      `${endpoint} returned non-JSON response. If you just pulled code changes, restart the backend server. Response starts with: ${snippet}`,
+    );
+  }
+
+  return parsed;
+};
+
 export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(function TeacherAvatar(
   {
     avatarId,
@@ -141,6 +177,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
 
   const requestReplyFromHistory = useCallback(
     async (messages: Message[]) => {
+      const normalizedLanguage = normalizeAnamLanguageCode(languageCode) || "en";
       const history: GenerateReplyRequestMessage[] = messages
         .map((message) => ({
           role:
@@ -163,16 +200,11 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
           history,
           tutorId,
           lessonContext,
-          language: languageCode.startsWith("hi") ? "Hindi" : "English",
+          language: normalizedLanguage.startsWith("hi") ? "Hindi" : "English",
         }),
       });
 
-      if (!response.ok) {
-        const failureText = await response.text();
-        throw new Error(failureText || "Failed to generate LLM reply");
-      }
-
-      const payload = (await response.json()) as GenerateReplyResponse;
+      const payload = await parseJsonResponse<GenerateReplyResponse>(response, "/api/generate-reply");
       const replyText = String(payload.replyText || "").trim();
       if (!replyText) throw new Error("LLM returned empty reply text");
       setBoardText(replyText);
@@ -214,6 +246,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
       setErrorMessage("");
       setIsVideoReady(false);
 
+      const normalizedLanguageCode = normalizeAnamLanguageCode(languageCode);
       const tokenResponse = await fetch("/api/session-token", {
         method: "POST",
         credentials: "include",
@@ -221,17 +254,15 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
         body: JSON.stringify({
           avatarId,
           voiceId,
-          languageCode,
+          languageCode: normalizedLanguageCode,
           systemPrompt,
           lessonContext,
         }),
       });
-      if (!tokenResponse.ok) {
-        const details = await tokenResponse.text();
-        throw new Error(details || "Unable to fetch Anam session token");
-      }
-
-      const tokenPayload = (await tokenResponse.json()) as SessionTokenResponse;
+      const tokenPayload = await parseJsonResponse<SessionTokenResponse>(
+        tokenResponse,
+        "/api/session-token",
+      );
       if (!tokenPayload.sessionToken) {
         throw new Error("Session token response is missing sessionToken");
       }

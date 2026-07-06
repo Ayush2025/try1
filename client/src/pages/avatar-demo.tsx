@@ -8,7 +8,7 @@ export default function AvatarDemoPage() {
   const avatarRef = useRef<TeacherAvatarRef | null>(null);
   const [avatarId, setAvatarId] = useState("");
   const [voiceId, setVoiceId] = useState("");
-  const [languageCode, setLanguageCode] = useState<"en-US" | "hi-IN">("en-US");
+  const [languageCode, setLanguageCode] = useState<"en" | "hi">("en");
 
   return (
     <div className="min-h-screen bg-background py-8 px-4">
@@ -42,8 +42,8 @@ export default function AvatarDemoPage() {
                 <Input
                   id="lang"
                   value={languageCode}
-                  onChange={(e) => setLanguageCode(e.target.value === "hi-IN" ? "hi-IN" : "en-US")}
-                  placeholder="en-US or hi-IN"
+                  onChange={(e) => setLanguageCode(e.target.value === "hi" ? "hi" : "en")}
+                  placeholder="en or hi"
                 />
               </div>
             </div>
