@@ -21,6 +21,11 @@ const tutorFormSchema = z.object({
   description: z.string().max(500, "Description too long").optional(),
   isPublic: z.boolean().default(false),
   password: z.string().optional(),
+  boardTheme: z.enum(["black", "green"]).default("green"),
+  tutorLanguageMode: z.enum(["english", "hindi", "bilingual"]).default("bilingual"),
+  modelEmbedUrl: z.string().url("Please enter a valid URL").optional().or(z.literal("")),
+  heygenAvatarId: z.string().optional(),
+  heygenVoiceId: z.string().optional(),
 });
 
 type TutorFormData = z.infer<typeof tutorFormSchema>;
@@ -50,12 +55,38 @@ export function CreateTutorForm({ onSuccess }: CreateTutorFormProps) {
       description: "",
       isPublic: false,
       password: "",
+      boardTheme: "green",
+      tutorLanguageMode: "bilingual",
+      modelEmbedUrl: "",
+      heygenAvatarId: "",
+      heygenVoiceId: "",
     },
   });
 
   const createTutorMutation = useMutation({
     mutationFn: async (data: TutorFormData) => {
-      const response = await apiRequest("POST", "/api/tutors", data);
+      const response = await apiRequest("POST", "/api/tutors", {
+        name: data.name,
+        subject: data.subject,
+        description: data.description,
+        isPublic: data.isPublic,
+        password: data.password,
+        avatarStyle: "platform-3d-tutor",
+        voiceSettings: {
+          languageMode: data.tutorLanguageMode,
+          supportsLipSync: true,
+          supportsHandAnimation: true,
+        },
+        branding: {
+          classroomStage: {
+            boardTheme: data.boardTheme,
+            modelEmbedUrl: data.modelEmbedUrl || "",
+            heygenAvatarId: data.heygenAvatarId || "",
+            heygenVoiceId: data.heygenVoiceId || "",
+            framing: "waist-up-with-board",
+          },
+        },
+      });
       return response.json();
     },
     onSuccess: async (tutor) => {
@@ -250,6 +281,116 @@ export function CreateTutorForm({ onSuccess }: CreateTutorFormProps) {
             />
           )}
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">3D Tutor Stage</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Use a platform-generated 3D human teacher embed URL so the same tutor appears in class view.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <FormField
+              control={form.control}
+              name="modelEmbedUrl"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>3D Tutor Embed URL</FormLabel>
+                  <FormControl>
+                    <Input
+                      placeholder="https://... (HeyGen / Sketchfab / D-ID embed link)"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Paste a genuine platform avatar URL. This exact tutor stays linked to this profile.
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="heygenAvatarId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>HeyGen Avatar ID (optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 28ea726f665349f..." {...field} />
+                    </FormControl>
+                    <FormDescription>
+                      If set, chat can use real-time HeyGen teacher session for this tutor.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="heygenVoiceId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>HeyGen Voice ID (optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="HeyGen voice id" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="boardTheme"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Board Theme</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select board theme" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="green">Green Board</SelectItem>
+                        <SelectItem value="black">Black Board</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="tutorLanguageMode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Voice Language Mode</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select voice language mode" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="english">English</SelectItem>
+                        <SelectItem value="hindi">Hindi</SelectItem>
+                        <SelectItem value="bilingual">Hindi + English</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Content Upload Section */}
         <Card>

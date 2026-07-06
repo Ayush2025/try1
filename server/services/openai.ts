@@ -58,7 +58,7 @@ export class GroqService {
     content: string,
     userMessage: string,
     conversationHistory: { role: string; content: string }[] = [],
-    mode: "chat" | "lecture" | "quiz" | "examples" = "chat",
+    mode: "chat" | "lecture" | "quiz" | "examples" | "explain" = "chat",
     tutorSubject?: string,
     preferredLanguage?: string,
     userSubscriptionTier?: string,
@@ -79,35 +79,79 @@ export class GroqService {
         model: "llama-3.3-70b-versatile",
         messages: messages as any,
         temperature: 0.8,
-        max_tokens: 2000,
+        max_tokens: 3000,
       });
 
       const responseContent = response.choices[0].message.content || "";
-      
-      // Try to extract JSON from the response
-      let result;
-      try {
-        // Look for JSON object in the response
-        const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          result = JSON.parse(jsonMatch[0]);
-        } else {
-          // Fallback if no JSON found
+      let result = this.parseTutorResult(responseContent);
+
+      // If the user asked for executable code but the model returned only prose,
+      // run one strict follow-up to force a complete runnable answer.
+      if (this.isCodeRequest(userMessage) && !this.containsCodeBlock(result.content || "")) {
+        const strictFollowup = await groq.chat.completions.create({
+          model: "llama-3.3-70b-versatile",
+          messages: [
+            { role: "system", content: systemPrompt },
+            ...conversationHistory.slice(-10),
+            { role: "user", content: userMessage },
+            { role: "assistant", content: result.content || "" },
+            {
+              role: "user",
+              content:
+                "You did not provide full runnable code. Rewrite your answer with complete executable code first, then explain it. Do not give only a summary. Return valid JSON in the required schema.",
+            },
+          ] as any,
+          temperature: 0.6,
+          max_tokens: 3000,
+        });
+
+        const strictContent = strictFollowup.choices[0].message.content || "";
+        result = this.parseTutorResult(strictContent);
+
+        // Last-resort fallback: generate a direct code-first answer (non-JSON)
+        // and map it back into the tutor response format.
+        if (!this.containsCodeBlock(result.content || "")) {
+          const languageHint =
+            this.detectProgrammingLanguage(userMessage) ||
+            (tutorSubject?.toLowerCase().includes("python") ? "Python" : "the requested language");
+          const directCodeResponse = await groq.chat.completions.create({
+            model: "llama-3.3-70b-versatile",
+            messages: [
+              {
+                role: "system",
+                content: `You are a real coding tutor. Always provide complete runnable ${languageHint} code inside fenced markdown code blocks, then explain it clearly. Never answer with only a summary.`,
+              },
+              {
+                role: "user",
+                content: `Student request: ${userMessage}
+
+Reference material (optional context): ${content.substring(0, 1200)}
+
+Response requirements:
+1) Give full runnable code first in a markdown code block.
+2) Then explain how it works in concise steps.
+3) End with 2-3 practical improvement ideas.`,
+              },
+            ] as any,
+            temperature: 0.4,
+            max_tokens: 3000,
+          });
+
+          const codeFirstContent = directCodeResponse.choices[0].message.content || result.content || "";
           result = {
-            content: responseContent,
-            emotion: "neutral",
-            suggestions: [],
-            needsClarification: false
+            ...result,
+            content: codeFirstContent,
+            suggestions:
+              result.suggestions && result.suggestions.length > 0
+                ? result.suggestions
+                : [
+                    "Add input validation and error handling.",
+                    "Extend it with more operations (power, modulo, roots).",
+                    "Refactor into reusable functions and add tests.",
+                  ],
+            needsClarification: false,
           };
         }
-      } catch (e) {
-        // If JSON parsing fails, use the raw content
-        result = {
-          content: responseContent,
-          emotion: "neutral", 
-          suggestions: [],
-          needsClarification: false
-        };
       }
       
       // Check if user has access to resource recommendations (Pro and Premium only)
@@ -232,6 +276,51 @@ export class GroqService {
     }
   }
 
+  private parseTutorResult(responseContent: string): any {
+    try {
+      const jsonMatch = responseContent.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        return JSON.parse(jsonMatch[0]);
+      }
+    } catch (_error) {
+      // Fall through to raw-content fallback below.
+    }
+
+    return {
+      content: responseContent,
+      emotion: "neutral",
+      suggestions: [],
+      needsClarification: false,
+    };
+  }
+
+  private isCodeRequest(userMessage: string): boolean {
+    return /\b(write|create|build|program|code|implement|script|function|class|algorithm)\b/i.test(userMessage);
+  }
+
+  private containsCodeBlock(text: string): boolean {
+    return /```[\s\S]*```/.test(text);
+  }
+
+  private detectProgrammingLanguage(userMessage: string): string | null {
+    const languagePatterns: Array<{ pattern: RegExp; name: string }> = [
+      { pattern: /\bpython\b/i, name: "Python" },
+      { pattern: /\bjavascript\b|\bjs\b/i, name: "JavaScript" },
+      { pattern: /\btypescript\b|\bts\b/i, name: "TypeScript" },
+      { pattern: /\bjava\b/i, name: "Java" },
+      { pattern: /\bc\+\+\b|\bcpp\b/i, name: "C++" },
+      { pattern: /\bc#\b|\bcsharp\b/i, name: "C#" },
+      { pattern: /\bgo\b|\bgolang\b/i, name: "Go" },
+      { pattern: /\brust\b/i, name: "Rust" },
+      { pattern: /\bphp\b/i, name: "PHP" },
+      { pattern: /\bruby\b/i, name: "Ruby" },
+      { pattern: /\bsql\b/i, name: "SQL" },
+    ];
+
+    const matched = languagePatterns.find(({ pattern }) => pattern.test(userMessage));
+    return matched ? matched.name : null;
+  }
+
   private buildSystemPrompt(contentText: string, mode: string, tutorSubject?: string, preferredLanguage?: string, userSubscriptionTier?: string): string {
     const subjectRestriction = tutorSubject ? `
 STRICT SUBJECT RESTRICTION: You are specifically a ${tutorSubject} tutor. You MUST ONLY answer questions related to ${tutorSubject}. If asked about any other subject, politely decline and redirect the conversation back to ${tutorSubject}.
@@ -291,6 +380,14 @@ Core Teaching Principles:
 - Share insights and connections that show deep understanding of the subject
 - When appropriate and available based on subscription, recommend YouTube videos and Google searches for additional learning resources
 
+Deliverable Quality Rules (very important):
+- If the student asks to "write", "create", "solve", "derive", "design", or "build" something, provide the complete deliverable first (full code, full solution steps, full draft, etc.).
+- Never reply with only a summary of what the answer "would" contain.
+- For coding requests, include a runnable code block and then explain line-by-line or section-by-section.
+- For math/problem-solving requests, show step-by-step working before the final answer.
+- Unless the student explicitly asks for a short answer, give a substantive teaching response with clear structure and enough detail to be useful in practice.
+- End with 2-3 thoughtful next-step suggestions that help the student continue learning.
+
 ${userSubscriptionTier === "pro" || userSubscriptionTier === "premium" ? `Resource Recommendation Guidelines:
 - For complex topics or when students need visual explanations, suggest specific YouTube video searches
 - Provide Google search links for additional reading materials, practice problems, or current examples
@@ -326,7 +423,8 @@ ${userSubscriptionTier === "pro" || userSubscriptionTier === "premium" ? '- reso
       chat: "Engage in natural conversation like an experienced teacher having a one-on-one discussion with a student. Explain concepts personally, ask thoughtful questions, and build on their responses.",
       lecture: "Present information like an engaging professor giving a dynamic classroom lecture. Use storytelling, real examples, and interactive elements to bring the subject to life.",
       quiz: "Act like a supportive teacher creating practice questions. Explain not just the correct answers, but WHY they're correct and help students understand their thinking process.",
-      examples: "Share examples like a mentor showing real-world applications. Walk through each step personally, explaining your thought process and connecting it to broader understanding."
+      examples: "Share examples like a mentor showing real-world applications. Walk through each step personally, explaining your thought process and connecting it to broader understanding.",
+      explain: "Teach the concept deeply and clearly in a practical way, using complete worked examples and actionable guidance."
     };
 
     return `${basePrompt}\n\nTeaching Mode: ${modeSpecificPrompts[mode as keyof typeof modeSpecificPrompts]}
