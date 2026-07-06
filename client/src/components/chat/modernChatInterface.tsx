@@ -105,8 +105,6 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
   const stageEmbedUrl: string = classroomStage.modelEmbedUrl || "";
   const stageHeygenAvatarId: string = classroomStage.heygenAvatarId || "";
   const stageHeygenVoiceId: string = classroomStage.heygenVoiceId || "";
-  const resolvedHeygenAvatarId: string =
-    stageHeygenAvatarId || "28ea726f665349f3878b5188ccb4d1bf";
 
   // Theme management
   useEffect(() => {
@@ -609,7 +607,7 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
             />
 
             <TeacherAvatar
-              avatarId={resolvedHeygenAvatarId}
+              avatarId={stageHeygenAvatarId || undefined}
               voiceId={stageHeygenVoiceId || undefined}
               language={selectedLanguage === "Hindi" ? "hi" : "en"}
               lessonContext={`Tutor subject: ${tutor.subject || "General"}`}

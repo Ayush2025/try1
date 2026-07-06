@@ -28,7 +28,7 @@ export interface TeacherAvatarRef {
 }
 
 interface TeacherAvatarProps {
-  avatarId: string;
+  avatarId?: string;
   voiceId?: string;
   language?: AvatarLanguage;
   quality?: "low" | "medium" | "high";
@@ -177,8 +177,8 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         setErrorMessage("");
 
         const tokenResponse = await apiRequest("POST", "/api/get-access-token", {
-          avatarId,
-          voiceId,
+          ...(avatarId ? { avatarId } : {}),
+          ...(voiceId ? { voiceId } : {}),
           language,
           mode: "LITE",
           activityIdleTimeout,
