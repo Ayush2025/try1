@@ -103,9 +103,6 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
   const classroomStage = tutorBranding.classroomStage || {};
   const stageBoardTheme: "black" | "green" = classroomStage.boardTheme === "black" ? "black" : "green";
   const stageEmbedUrl: string = classroomStage.modelEmbedUrl || "";
-  const stageSimliFaceId: string = classroomStage.simliFaceId || classroomStage.heygenAvatarId || "";
-  const stageAnamAvatarId: string = classroomStage.anamAvatarId || stageSimliFaceId || "";
-  const stageAnamVoiceId: string = classroomStage.anamVoiceId || classroomStage.heygenVoiceId || "";
 
   // Theme management
   useEffect(() => {
@@ -486,8 +483,6 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
 
         <div className="flex-1 min-h-0 max-w-5xl w-full mx-auto p-2 md:p-4">
           <TeacherAvatar
-            avatarId={stageAnamAvatarId || undefined}
-            voiceId={stageAnamVoiceId || undefined}
             personaName={tutor.name || "AI Teacher"}
             tutorId={Number(tutor.id)}
             languageCode={selectedLanguage === "Hindi" ? "hi" : "en"}
@@ -655,8 +650,6 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
             />
 
             <TeacherAvatar
-              avatarId={stageAnamAvatarId || undefined}
-              voiceId={stageAnamVoiceId || undefined}
               personaName={tutor.name || "AI Teacher"}
               tutorId={Number(tutor.id)}
               languageCode={selectedLanguage === "Hindi" ? "hi" : "en"}

@@ -41,6 +41,9 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const buildOutOfScopeReply = (subject: string) =>
+    `I'm your ${subject} tutor, so I can only answer ${subject}-related questions. Please ask something from ${subject}, and I'll help in detail.`;
+
   // Unity WebGL build - serve at /unity
   const unityPath = path.resolve(import.meta.dirname, "..", "client", "Unity");
   app.get(["/unity", "/unity/"], (_req, res) =>
@@ -441,6 +444,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // TODO(LLM): Replace this provider call with your own model orchestration.
         // Route contract already supports Anam voice mode by accepting full `history`
         // and can be upgraded to streaming without changing client payload shape.
+        if (!/^general$/i.test(tutorSubject)) {
+          const inScope = await openaiService.isQuestionInScope(tutorSubject, studentText);
+          if (!inScope) {
+            return res.json({ replyText: buildOutOfScopeReply(tutorSubject) });
+          }
+        }
+
         const isProgrammingQuery = /\b(code|program|python|javascript|java|c\+\+|function|algorithm|script)\b/i.test(
           studentText,
         );
@@ -911,6 +921,33 @@ Ask me to continue and I will provide a deeper step-by-step explanation.`;
 
       const detectedLanguage = req.body.language || req.body.preferredLanguage || detectLanguage(req.body.content);
       console.log("Processing message with language:", detectedLanguage);
+
+      const inScope = await openaiService.isQuestionInScope(tutor.subject || "General", req.body.content);
+      if (!inScope) {
+        const refusalText = buildOutOfScopeReply(tutor.subject || "this subject");
+        const assistantMessage = await storage.addChatMessage(insertChatMessageSchema.parse({
+          sessionId: session.id,
+          role: 'assistant',
+          content: refusalText,
+          metadata: {
+            emotion: "serious",
+            suggestions: [`Ask a ${tutor.subject || "subject"} question`, `Share your ${tutor.subject || "subject"} topic`],
+            needsClarification: false,
+          },
+        }));
+
+        return res.json({
+          userMessage,
+          assistantMessage: {
+            ...assistantMessage,
+            metadata: {
+              emotion: "serious",
+              suggestions: [`Ask a ${tutor.subject || "subject"} question`, `Share your ${tutor.subject || "subject"} topic`],
+              needsClarification: false,
+            }
+          }
+        });
+      }
 
       // Generate AI response
       const aiResponse = await openaiService.generateTutorResponse(

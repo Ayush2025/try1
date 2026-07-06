@@ -38,6 +38,102 @@ export interface Flashcard {
 }
 
 export class GroqService {
+  private readonly subjectDomains: Record<string, string[]> = {
+    programming: [
+      "programming", "coding", "computer science", "software", "development", "python", "javascript",
+      "java", "c++", "typescript", "algorithm", "data structures", "web development", "backend", "frontend",
+    ],
+    biology: [
+      "biology", "photosynthesis", "cell", "cells", "dna", "rna", "genetics", "evolution", "ecosystem",
+      "respiration", "mitochondria", "chloroplast", "organism", "microbiology", "botany", "zoology",
+    ],
+    chemistry: [
+      "chemistry", "molecule", "atom", "reaction", "chemical", "compound", "periodic table", "organic chemistry",
+      "inorganic chemistry", "stoichiometry", "acid", "base", "ph", "bond", "ions",
+    ],
+    physics: [
+      "physics", "force", "motion", "energy", "electricity", "magnetism", "quantum", "thermodynamics",
+      "newton", "velocity", "acceleration", "momentum", "wave", "optics",
+    ],
+    mathematics: [
+      "mathematics", "math", "algebra", "calculus", "geometry", "trigonometry", "equation", "integral",
+      "derivative", "probability", "statistics", "matrix", "number theory",
+    ],
+    history: [
+      "history", "ancient", "medieval", "civilization", "war", "empire", "revolution", "world war",
+      "historical", "dynasty", "independence movement",
+    ],
+    geography: [
+      "geography", "continent", "country", "climate", "river", "mountain", "map", "population geography",
+      "earthquake", "volcano", "latitude", "longitude",
+    ],
+    economics: [
+      "economics", "market", "inflation", "gdp", "supply", "demand", "fiscal", "monetary", "macroeconomics",
+      "microeconomics", "trade", "recession",
+    ],
+  };
+
+  private detectDomain(text: string): string | null {
+    const normalized = text.toLowerCase();
+    let bestDomain: string | null = null;
+    let bestScore = 0;
+    for (const [domain, keywords] of Object.entries(this.subjectDomains)) {
+      const score = keywords.reduce((acc, keyword) => (normalized.includes(keyword) ? acc + 1 : acc), 0);
+      if (score > bestScore) {
+        bestScore = score;
+        bestDomain = domain;
+      }
+    }
+    return bestScore > 0 ? bestDomain : null;
+  }
+
+  async isQuestionInScope(tutorSubject: string, userMessage: string): Promise<boolean> {
+    const subject = String(tutorSubject || "").trim();
+    const message = String(userMessage || "").trim();
+    if (!subject || !message) return true;
+    if (/^general$/i.test(subject)) return true;
+
+    const subjectDomain = this.detectDomain(subject);
+    const questionDomain = this.detectDomain(message);
+    if (subjectDomain && questionDomain && subjectDomain !== questionDomain) {
+      return false;
+    }
+
+    try {
+      const response = await groq.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a strict classifier. Decide if the student question is within the tutor subject scope. Return ONLY one token: IN_SCOPE or OUT_OF_SCOPE.",
+          },
+          {
+            role: "user",
+            content: `Tutor subject: ${subject}
+Student question: ${message}
+
+Rules:
+- IN_SCOPE if the question is directly about the subject or clearly about learning that subject.
+- OUT_OF_SCOPE if the question is about a different academic domain.
+- Return only IN_SCOPE or OUT_OF_SCOPE.`,
+          },
+        ] as any,
+        temperature: 0,
+        max_tokens: 8,
+      });
+
+      const verdict = String(response.choices?.[0]?.message?.content || "")
+        .trim()
+        .toUpperCase();
+      if (verdict.includes("OUT_OF_SCOPE")) return false;
+      return true;
+    } catch (error) {
+      console.warn("Scope classifier failed, defaulting to in-scope:", error);
+      return true;
+    }
+  }
+
   // Special users with free premium access
   private isSpecialUser(email: string | null): boolean {
     if (!email) return false;
