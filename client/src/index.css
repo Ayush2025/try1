@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Kalam:wght@400;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -44,6 +46,15 @@
   --chart-3: hsl(188, 96%, 44%);
   --chart-4: hsl(142, 76%, 36%);
   --chart-5: hsl(38, 92%, 50%);
+
+  /* Avatar classroom design tokens */
+  --chalkboard: #1C3829;
+  --oak: #6B4226;
+  --oak-dark: #4A2D19;
+  --chalk: #F2EFE4;
+  --brass: #C9A227;
+  --ink: #241F1A;
+  --paper: #FBF8F1;
 }
 
 /* Hide tutorial buttons on simulation/chat pages */
@@ -145,6 +156,7 @@ html, body {
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-family: "Inter", system-ui, sans-serif;
   }
 }
 

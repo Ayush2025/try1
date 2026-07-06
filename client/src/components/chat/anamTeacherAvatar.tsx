@@ -4,12 +4,12 @@ import {
   useEffect,
   useId,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { createClient, AnamEvent, type AnamClient, type Message } from "@anam-ai/js-sdk";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
+import "./anamTeacherAvatar.css";
 
 type InteractionMode = "text" | "voice";
 
@@ -29,6 +29,7 @@ type SessionTokenResponse = {
 interface TeacherAvatarProps {
   avatarId?: string;
   voiceId?: string;
+  personaName?: string;
   tutorId?: number;
   languageCode?: string;
   lessonContext?: string;
@@ -64,22 +65,28 @@ const normalizeAnamLanguageCode = (languageCode?: string) => {
   return normalized;
 };
 
-const parseJsonResponse = async <T>(response: Response, endpoint: string): Promise<T> => {
+const parseJsonResponse = async <T,>(response: Response, endpoint: string): Promise<T> => {
   const bodyText = await response.text();
+  if (!response.ok) {
+    let parsedError: any = null;
+    try {
+      parsedError = bodyText ? JSON.parse(bodyText) : null;
+    } catch (_error) {
+      parsedError = null;
+    }
+    const message =
+      parsedError?.message ||
+      parsedError?.error ||
+      bodyText ||
+      `${endpoint} failed with status ${response.status}`;
+    throw new Error(String(message));
+  }
+
   let parsed: T | null = null;
   try {
     parsed = bodyText ? (JSON.parse(bodyText) as T) : null;
   } catch (_error) {
     parsed = null;
-  }
-
-  if (!response.ok) {
-    const message =
-      (parsed as any)?.message ||
-      (parsed as any)?.error ||
-      bodyText ||
-      `${endpoint} failed with status ${response.status}`;
-    throw new Error(String(message));
   }
 
   if (!parsed) {
@@ -107,6 +114,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
   {
     avatarId,
     voiceId,
+    personaName = "AI Teacher",
     tutorId,
     languageCode = "en",
     lessonContext = "",
@@ -133,6 +141,26 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
   const [boardText, setBoardText] = useState("");
   const [latestUserCaption, setLatestUserCaption] = useState("");
   const [latestPersonaCaption, setLatestPersonaCaption] = useState("");
+  const boardBody = useMemo(() => {
+    if (boardText.trim()) return boardText.trim();
+    if (mode === "voice" && latestPersonaCaption.trim()) return latestPersonaCaption.trim();
+    return "Ask a question in text mode, or speak in voice chat mode.";
+  }, [boardText, mode, latestPersonaCaption]);
+  const boardLines = useMemo(
+    () =>
+      boardBody
+        .split("\n")
+        .map((line) => line.trimEnd())
+        .filter((line) => line.length > 0),
+    [boardBody],
+  );
+  const statusText = errorMessage
+    ? errorMessage
+    : status === "connecting"
+      ? "Connecting to tutor session..."
+      : status === "connected"
+        ? "Live classroom session active."
+        : "Not connected. Tap Connect to begin.";
 
   const clearListeners = useCallback(() => {
     for (const cleanup of listenerCleanupRef.current) cleanup();
@@ -355,7 +383,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
         setIsReplying(true);
         void requestReplyFromHistory(messages)
           .catch((error: any) => {
-            setErrorMessage(String(error?.message || "Failed to generate reply for voice chat"));
+            setErrorMessage(formatAnamErrorMessage(error, "Failed to generate reply for voice chat"));
           })
           .finally(() => {
             setIsReplying(false);
@@ -394,26 +422,39 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
   }, [stopStreaming]);
 
   return (
-    <div className={`h-full flex flex-col gap-3 p-3 md:p-4 border rounded-xl bg-card ${className || ""}`}>
-      <div className="flex flex-wrap items-center justify-between gap-2 shrink-0">
-        <div>
-          <h3 className="text-lg font-semibold">AI Teacher Avatar (Anam)</h3>
-          <p className="text-sm text-muted-foreground">
-            State: {status.toUpperCase()} · Mode: {mode === "text" ? "Text" : "Voice chat"}
-          </p>
+    <section className={`anam-classroom ${className || ""}`} aria-label="AI teacher avatar classroom">
+      <div className="anam-header">
+        <div className="anam-heading">
+          <h3>AI Teacher</h3>
+          <p>A focused one-on-one tutoring window</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant={mode === "text" ? "default" : "outline"} onClick={() => setMode("text")}>
-            Text mode
-          </Button>
-          <Button variant={mode === "voice" ? "default" : "outline"} onClick={() => setMode("voice")}>
-            Voice chat mode
-          </Button>
-          <Button variant="outline" onClick={() => anamRef.current?.interruptPersona()}>
+        <div className="anam-controls-bar">
+          <div className="anam-segmented-toggle" role="tablist" aria-label="Interaction mode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "text"}
+              className={`anam-segment-btn ${mode === "text" ? "is-active" : ""}`}
+              onClick={() => setMode("text")}
+            >
+              Text mode
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={mode === "voice"}
+              className={`anam-segment-btn ${mode === "voice" ? "is-active" : ""}`}
+              onClick={() => setMode("voice")}
+            >
+              Voice chat mode
+            </button>
+          </div>
+          <button type="button" className="anam-btn anam-btn-ghost" onClick={() => anamRef.current?.interruptPersona()}>
             Skip
-          </Button>
-          <Button
-            variant="outline"
+          </button>
+          <button
+            type="button"
+            className={`anam-btn anam-btn-connect ${status === "connected" ? "is-live" : ""}`}
             onClick={() => {
               if (status === "connected") {
                 void stopStreaming();
@@ -422,84 +463,113 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(fu
               }
             }}
           >
-            {status === "connected" ? "Disconnect" : "Connect"}
-          </Button>
+            {status === "connected" ? "Live · Disconnect" : status === "connecting" ? "Connecting..." : "Connect"}
+          </button>
         </div>
       </div>
 
-      {status === "connecting" && !isVideoReady && (
-        <div className="text-sm rounded-md border border-blue-300 bg-blue-50 text-blue-700 px-3 py-2">
-          Connecting...
-        </div>
-      )}
-      {errorMessage && (
-        <div className="text-sm rounded-md border border-red-300 bg-red-50 text-red-700 px-3 py-2">
-          {errorMessage}
-        </div>
-      )}
+      <p
+        className={`anam-status-line ${errorMessage ? "is-error" : ""}`}
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {status === "connecting" && !errorMessage ? "Connecting..." : statusText}
+      </p>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 shrink-0">
-        <div className="relative w-full h-56 md:h-72 overflow-hidden rounded-lg bg-black">
-          <video id={videoElementId} autoPlay playsInline className="w-full h-full object-cover" />
-          <div className="absolute top-2 left-2 flex gap-2">
-            {isReplying && (
-              <span className="text-xs px-2 py-1 rounded bg-emerald-600 text-white">Avatar speaking</span>
-            )}
-            {isMicActive && (
-              <span className="text-xs px-2 py-1 rounded bg-indigo-600 text-white">Listening to you</span>
-            )}
-            {isMicPermissionPending && (
-              <span className="text-xs px-2 py-1 rounded bg-amber-600 text-white">Mic permission pending</span>
-            )}
-          </div>
-        </div>
-        <div className="h-56 md:h-72 rounded-lg border border-[#3d6651] bg-[#1d3d2e] text-emerald-50 p-3 overflow-y-auto">
-          <div className="text-xs uppercase tracking-wider opacity-90 mb-2">Board Notes</div>
-          <div className="whitespace-pre-wrap text-sm leading-6">
-            {boardText || "Ask a question in text mode, or speak in voice chat mode."}
-          </div>
-        </div>
-      </div>
-
-      <div className="min-h-0 flex-1 rounded-lg border bg-background/70 flex flex-col overflow-hidden">
-        <div className="border-t p-3 space-y-3">
-          {mode === "text" ? (
-            <form
-              className="space-y-2"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (!textQuestion.trim() || status !== "connected" || isReplying) return;
-                void speakText(textQuestion.trim());
-                setTextQuestion("");
-              }}
-            >
-              <Textarea
-                placeholder="Type text to make the teacher speak directly..."
-                value={textQuestion}
-                onChange={(event) => setTextQuestion(event.target.value)}
-                className="min-h-[72px]"
-              />
-              <Button type="submit" disabled={!textQuestion.trim() || status !== "connected" || isReplying}>
-                {isReplying ? "Working..." : "Ask the teacher"}
-              </Button>
-            </form>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Voice chat mode is active. Start speaking naturally — Anam handles listening and transcription.
-              </p>
-              <div className="rounded-md border bg-background p-2 text-sm">
-                <div className="text-xs text-muted-foreground mb-1">Live user caption</div>
-                <div className="whitespace-pre-wrap">{latestUserCaption || "..."}</div>
+      <div className="anam-stage-grid">
+        <div className="anam-avatar-frame">
+          <div className="anam-avatar-inner">
+            <video id={videoElementId} autoPlay playsInline className="anam-avatar-video" />
+            {(status !== "connected" || !isVideoReady) && (
+              <div className="anam-avatar-placeholder" aria-hidden="true">
+                <div className="anam-placeholder-mark">✦</div>
+                <div className="anam-placeholder-text">Not connected</div>
               </div>
-              <div className="rounded-md border bg-background p-2 text-sm">
-                <div className="text-xs text-muted-foreground mb-1">Live persona caption</div>
-                <div className="whitespace-pre-wrap">{latestPersonaCaption || "..."}</div>
-              </div>
+            )}
+            <div className="anam-nameplate">
+              <span className={`anam-status-dot status-${status}`} />
+              <span className="anam-nameplate-name">{personaName}</span>
+              <span className="anam-nameplate-state">
+                {status === "connected" ? "Live" : status === "connecting" ? "Connecting" : "Offline"}
+              </span>
             </div>
-          )}
+          </div>
+        </div>
+
+        <div className="anam-board">
+          <div className="anam-board-label">BOARD NOTES</div>
+          <div className="anam-board-content">
+            {boardLines.map((line, index) => (
+              <p
+                key={`${line}-${index}`}
+                className="anam-board-line"
+                style={{ animationDelay: `${Math.min(index * 70, 500)}ms` }}
+              >
+                {line}
+              </p>
+            ))}
+            {mode === "voice" && (
+              <div className="anam-caption-meta">
+                <p>
+                  <strong>You:</strong> {latestUserCaption || "..."}
+                </p>
+                <p>
+                  <strong>Tutor:</strong> {latestPersonaCaption || (isReplying ? "Thinking..." : "...")}
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="anam-board-tray" aria-hidden="true" />
         </div>
       </div>
-    </div>
+
+      <div className="anam-input-shell">
+        {mode === "text" ? (
+          <form
+            className="anam-input-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!textQuestion.trim() || status !== "connected" || isReplying) return;
+              void speakText(textQuestion.trim());
+              setTextQuestion("");
+            }}
+          >
+            <textarea
+              className="anam-text-input"
+              placeholder="Type text to make the teacher speak directly..."
+              value={textQuestion}
+              onChange={(event) => setTextQuestion(event.target.value)}
+              rows={2}
+            />
+            <button
+              type="submit"
+              className="anam-btn anam-btn-ask"
+              disabled={!textQuestion.trim() || status !== "connected" || isReplying}
+            >
+              {isReplying ? "Working..." : "Ask the teacher"}
+            </button>
+          </form>
+        ) : (
+          <div className="anam-voice-hint">
+            <p>
+              {isMicPermissionPending
+                ? "Waiting for microphone permission..."
+                : isMicActive
+                  ? "Voice chat mode is live. Speak naturally; Anam transcribes automatically."
+                  : "Voice chat mode is selected. Connect and allow mic to start speaking."}
+            </p>
+            <p>
+              {isReplying
+                ? "Tutor is responding..."
+                : "If the tutor starts speaking while you talk, interrupted speech will reset automatically."}
+            </p>
+            <div className="anam-live-flags">
+              <span className={`anam-flag ${isReplying ? "is-on" : ""}`}>Avatar speaking</span>
+              <span className={`anam-flag ${isMicActive ? "is-on" : ""}`}>Listening to you</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 });

@@ -60,6 +60,7 @@ export default function AvatarDemoPage() {
               ref={avatarRef}
               avatarId={avatarId || undefined}
               voiceId={voiceId || undefined}
+              personaName="Demo Teacher"
               languageCode={languageCode}
               lessonContext="Current lesson: Intro to linear equations for grade 8."
             />

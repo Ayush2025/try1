@@ -488,6 +488,7 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
           <TeacherAvatar
             avatarId={stageAnamAvatarId || undefined}
             voiceId={stageAnamVoiceId || undefined}
+            personaName={tutor.name || "AI Teacher"}
             tutorId={Number(tutor.id)}
             languageCode={selectedLanguage === "Hindi" ? "hi" : "en"}
             lessonContext={`Tutor subject: ${tutor.subject || "General"}`}
@@ -656,6 +657,7 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
             <TeacherAvatar
               avatarId={stageAnamAvatarId || undefined}
               voiceId={stageAnamVoiceId || undefined}
+              personaName={tutor.name || "AI Teacher"}
               tutorId={Number(tutor.id)}
               languageCode={selectedLanguage === "Hindi" ? "hi" : "en"}
               lessonContext={`Tutor subject: ${tutor.subject || "General"}`}

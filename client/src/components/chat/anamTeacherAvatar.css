@@ -1,0 +1,436 @@
+.anam-classroom {
+  --anam-shadow: 0 20px 36px rgb(27 20 12 / 14%);
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 1rem;
+  border: 1px solid rgb(74 45 25 / 22%);
+  box-shadow: var(--anam-shadow);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.anam-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.anam-heading h3 {
+  margin: 0;
+  font-family: "Fraunces", serif;
+  font-size: 1.28rem;
+  color: var(--ink);
+}
+
+.anam-heading p {
+  margin: 0.15rem 0 0;
+  font-family: "Inter", system-ui, sans-serif;
+  color: rgb(36 31 26 / 72%);
+  font-size: 0.82rem;
+}
+
+.anam-controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.anam-segmented-toggle {
+  border: 1px solid rgb(74 45 25 / 35%);
+  border-radius: 999px;
+  padding: 0.2rem;
+  display: inline-flex;
+  background: rgb(107 66 38 / 10%);
+}
+
+.anam-segment-btn {
+  border: 0;
+  background: transparent;
+  color: rgb(36 31 26 / 82%);
+  min-height: 44px;
+  padding: 0.52rem 0.85rem;
+  border-radius: 999px;
+  font: 600 0.86rem/1 "Inter", system-ui, sans-serif;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease;
+}
+
+.anam-segment-btn.is-active {
+  background: var(--oak);
+  color: #fff;
+}
+
+.anam-btn {
+  border: 1px solid transparent;
+  min-height: 44px;
+  border-radius: 0.75rem;
+  padding: 0.52rem 0.85rem;
+  font: 600 0.86rem/1 "Inter", system-ui, sans-serif;
+  cursor: pointer;
+  transition: transform 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+
+.anam-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.anam-btn-ghost {
+  background: transparent;
+  border-color: rgb(74 45 25 / 35%);
+  color: rgb(36 31 26 / 88%);
+}
+
+.anam-btn-connect,
+.anam-btn-ask {
+  background: var(--brass);
+  color: #2b1f0a;
+  border-color: rgb(146 115 26 / 58%);
+}
+
+.anam-btn-connect.is-live {
+  background: #85b872;
+  color: #172111;
+  border-color: #5f8b4f;
+}
+
+.anam-status-line {
+  margin: 0;
+  min-height: 1.25rem;
+  font: 500 0.82rem/1.3 "Inter", system-ui, sans-serif;
+  color: rgb(57 45 35 / 72%);
+}
+
+.anam-status-line.is-error {
+  color: #8b3a2d;
+}
+
+.anam-stage-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.45fr) minmax(0, 0.55fr);
+  gap: 0.9rem;
+  align-items: stretch;
+}
+
+.anam-avatar-frame {
+  background: linear-gradient(145deg, var(--oak) 0%, #7e5334 36%, var(--oak-dark) 100%);
+  border-radius: 1rem;
+  padding: 0.7rem;
+  box-shadow:
+    inset 0 0 0 2px rgb(255 255 255 / 10%),
+    inset 0 -8px 18px rgb(39 22 11 / 46%),
+    0 14px 22px rgb(33 21 12 / 24%);
+}
+
+.anam-avatar-inner {
+  position: relative;
+  border-radius: 0.72rem;
+  overflow: hidden;
+  min-height: 248px;
+  background: #0f1f17;
+}
+
+.anam-avatar-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.anam-avatar-placeholder {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 40% 28%, rgb(67 99 80 / 36%) 0%, transparent 45%),
+    radial-gradient(circle at 75% 70%, rgb(18 39 29 / 80%) 0%, rgb(12 26 19 / 96%) 55%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: rgb(242 239 228 / 86%);
+  font-family: "Inter", system-ui, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.anam-placeholder-mark {
+  font-size: 1.55rem;
+  opacity: 0.8;
+}
+
+.anam-placeholder-text {
+  margin-top: 0.25rem;
+  font-size: 0.82rem;
+}
+
+.anam-nameplate {
+  position: absolute;
+  left: 0.7rem;
+  bottom: 0.7rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  border-radius: 999px;
+  background: var(--brass);
+  color: #30240e;
+  font-family: "Fraunces", serif;
+  padding: 0.3rem 0.65rem;
+  box-shadow: 0 7px 16px rgb(0 0 0 / 22%);
+}
+
+.anam-nameplate-name {
+  font-size: 0.77rem;
+}
+
+.anam-nameplate-state {
+  font: 600 0.72rem/1 "Inter", system-ui, sans-serif;
+}
+
+.anam-status-dot {
+  width: 0.58rem;
+  height: 0.58rem;
+  border-radius: 999px;
+  display: inline-block;
+  background: #8d8d8d;
+}
+
+.anam-status-dot.status-connecting {
+  background: var(--brass);
+  box-shadow: 0 0 0 0 rgb(201 162 39 / 70%);
+  animation: anam-pulse 1.55s ease-out infinite;
+}
+
+.anam-status-dot.status-connected {
+  background: #89be77;
+  box-shadow: 0 0 8px rgb(137 190 119 / 90%);
+}
+
+.anam-board {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.95rem;
+  border: 1px solid rgb(17 33 23 / 42%);
+  min-height: 248px;
+  background:
+    radial-gradient(circle at 10% 15%, rgb(255 255 255 / 6%) 0%, transparent 30%),
+    radial-gradient(circle at 84% 80%, rgb(255 255 255 / 4%) 0%, transparent 35%),
+    repeating-radial-gradient(circle at 30% 20%, rgb(255 255 255 / 2%) 0 2px, transparent 2px 9px),
+    var(--chalkboard);
+  color: var(--chalk);
+  padding: 0.9rem 0.9rem 1.2rem;
+}
+
+.anam-board-label {
+  font-family: "Fraunces", serif;
+  color: rgb(242 239 228 / 94%);
+  letter-spacing: 0.07em;
+  font-size: 0.78rem;
+  margin-bottom: 0.45rem;
+  display: inline-block;
+  border-bottom: 2px dashed rgb(242 239 228 / 48%);
+  padding-bottom: 0.16rem;
+}
+
+.anam-board-content {
+  max-height: 215px;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.anam-board-line {
+  margin: 0 0 0.33rem;
+  font-family: "Kalam", cursive;
+  font-size: 1rem;
+  line-height: 1.45;
+  color: var(--chalk);
+  opacity: 0;
+  transform: translateY(6px);
+  animation: anam-line-in 280ms ease forwards;
+}
+
+.anam-caption-meta {
+  margin-top: 0.75rem;
+  border-top: 1px dashed rgb(242 239 228 / 30%);
+  padding-top: 0.55rem;
+  font-family: "Inter", system-ui, sans-serif;
+  font-size: 0.77rem;
+  color: rgb(242 239 228 / 82%);
+}
+
+.anam-caption-meta p {
+  margin: 0.2rem 0;
+}
+
+.anam-board-tray {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 12px;
+  background: linear-gradient(180deg, rgb(148 122 69 / 60%) 0%, rgb(84 65 36 / 72%) 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 24%);
+}
+
+.anam-input-shell {
+  border: 1px solid rgb(74 45 25 / 24%);
+  border-radius: 1rem;
+  background: rgb(251 248 241 / 92%);
+  padding: 0.75rem;
+}
+
+.anam-input-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.6rem;
+  align-items: end;
+}
+
+.anam-text-input {
+  border-radius: 0.9rem;
+  border: 1px solid rgb(74 45 25 / 28%);
+  background: var(--paper);
+  color: var(--ink);
+  font: 500 0.92rem/1.35 "Inter", system-ui, sans-serif;
+  padding: 0.7rem 0.9rem;
+  resize: vertical;
+  min-height: 44px;
+}
+
+.anam-voice-hint {
+  font: 500 0.86rem/1.45 "Inter", system-ui, sans-serif;
+  color: rgb(49 40 32 / 88%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.anam-voice-hint p {
+  margin: 0;
+}
+
+.anam-live-flags {
+  display: flex;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-top: 0.3rem;
+}
+
+.anam-flag {
+  border-radius: 999px;
+  border: 1px solid rgb(74 45 25 / 28%);
+  padding: 0.3rem 0.55rem;
+  font-size: 0.75rem;
+  color: rgb(59 44 33 / 85%);
+}
+
+.anam-flag.is-on {
+  border-color: rgb(126 172 108 / 65%);
+  background: rgb(133 184 114 / 18%);
+  color: #295220;
+}
+
+.anam-board-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.anam-board-content::-webkit-scrollbar-thumb {
+  background: rgb(242 239 228 / 26%);
+  border-radius: 999px;
+}
+
+.anam-classroom :is(button, textarea):focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+@keyframes anam-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(201 162 39 / 68%);
+  }
+  100% {
+    box-shadow: 0 0 0 13px rgb(201 162 39 / 0%);
+  }
+}
+
+@keyframes anam-line-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .anam-classroom {
+    padding: 0.78rem;
+    gap: 0.7rem;
+    border-radius: 0.8rem;
+    padding-bottom: calc(0.78rem + env(safe-area-inset-bottom, 0px) + 74px);
+  }
+
+  .anam-stage-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .anam-avatar-inner {
+    min-height: 0;
+    aspect-ratio: 16 / 10;
+  }
+
+  .anam-board {
+    min-height: 0;
+    max-height: 310px;
+  }
+
+  .anam-board-content {
+    max-height: 252px;
+  }
+
+  .anam-controls-bar {
+    width: 100%;
+  }
+
+  .anam-segmented-toggle {
+    flex: 1;
+    min-width: min(100%, 240px);
+  }
+
+  .anam-segment-btn {
+    flex: 1;
+  }
+
+  .anam-input-shell {
+    position: sticky;
+    bottom: 0;
+    z-index: 15;
+    box-shadow: 0 -8px 20px rgb(27 20 12 / 13%);
+  }
+
+  .anam-input-form {
+    grid-template-columns: 1fr;
+  }
+
+  .anam-btn-ask {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anam-status-dot.status-connecting,
+  .anam-board-line {
+    animation: none;
+  }
+
+  .anam-segment-btn,
+  .anam-btn {
+    transition: none;
+  }
+
+  .anam-board-line {
+    opacity: 1;
+    transform: none;
+  }
+}
