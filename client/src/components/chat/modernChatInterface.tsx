@@ -455,8 +455,8 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
 
   if (useHeygenOnlyLayout) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-        <div className="sticky top-0 z-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-700">
+      <div className="h-[100dvh] flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 overflow-hidden">
+        <div className="shrink-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-700">
           <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
             <div>
               <h1 className="text-lg font-bold text-slate-900 dark:text-white">
@@ -483,12 +483,13 @@ export function ModernChatInterface({ tutor, sessionToken }: ChatInterfaceProps)
           </div>
         </div>
 
-        <div className="max-w-5xl mx-auto p-3 md:p-6">
+        <div className="flex-1 min-h-0 max-w-5xl w-full mx-auto p-2 md:p-4">
           <TeacherAvatar
             avatarId={stageHeygenAvatarId || undefined}
             voiceId={stageHeygenVoiceId || undefined}
             language={selectedLanguage === "Hindi" ? "hi" : "en"}
             lessonContext={`Tutor subject: ${tutor.subject || "General"}`}
+            className="h-full"
           />
         </div>
       </div>

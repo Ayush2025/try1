@@ -8,7 +8,6 @@ import {
 } from "react";
 import {
   AgentEventsEnum,
-  Language,
   LiveAvatarSession,
   SessionEvent,
   SessionInteractivityMode,
@@ -40,6 +39,7 @@ interface TeacherAvatarProps {
   onUserStop?: () => void;
   onUserSilence?: () => void;
   onStreamDisconnected?: (reason: string) => void;
+  className?: string;
 }
 
 interface AccessTokenResponse {
@@ -65,6 +65,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
       onUserStop,
       onUserSilence,
       onStreamDisconnected,
+      className,
     },
     ref,
   ) {
@@ -72,6 +73,9 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
     const sessionRef = useRef<LiveAvatarSession | null>(null);
     const silenceTimerRef = useRef<number | null>(null);
     const inactivityTimerRef = useRef<number | null>(null);
+    const keepAliveTimerRef = useRef<number | null>(null);
+    const reconnectTimerRef = useRef<number | null>(null);
+    const reconnectAttemptsRef = useRef(0);
     const lastUserTranscriptRef = useRef("");
     const ignoreUserTranscriptsRef = useRef(false);
     const isSessionClosingRef = useRef(false);
@@ -88,6 +92,8 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
     const [errorMessage, setErrorMessage] = useState("");
     const [sessionState, setSessionState] = useState<SessionState>(SessionState.INACTIVE);
     const [isReplyPending, setIsReplyPending] = useState(false);
+    const [boardText, setBoardText] = useState("");
+    const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
 
     useEffect(() => {
       modeRef.current = mode;
@@ -112,6 +118,10 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
       try {
         setIsListening(false);
         setIsConnected(false);
+        if (keepAliveTimerRef.current) {
+          window.clearInterval(keepAliveTimerRef.current);
+          keepAliveTimerRef.current = null;
+        }
         await sessionRef.current.stop();
       } catch (error) {
         console.error("Failed to close avatar session:", error);
@@ -139,6 +149,7 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
           setIsReplyPending(true);
           setErrorMessage("");
           markActivity();
+          setChatMessages((prev) => [...prev, { role: "user", text: trimmedText }]);
 
           const replyResponse = await apiRequest("POST", "/api/generate-reply", {
             studentText: trimmedText,
@@ -151,6 +162,8 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
           }
 
           setReplyText(generatedReply);
+          setBoardText(generatedReply);
+          setChatMessages((prev) => [...prev, { role: "assistant", text: generatedReply }]);
           await sessionRef.current.repeat(generatedReply);
         } catch (error) {
           console.error("Failed to generate or speak reply:", error);
@@ -172,6 +185,8 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         if (!cleaned) return;
         markActivity();
         setReplyText(cleaned);
+        setBoardText(cleaned);
+        setChatMessages((prev) => [...prev, { role: "assistant", text: cleaned }]);
         await sessionRef.current.repeat(cleaned);
       },
       [markActivity],
@@ -210,6 +225,19 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         session.on(SessionEvent.SESSION_STATE_CHANGED, (state) => {
           setSessionState(state);
           setIsConnected(state === SessionState.CONNECTED);
+          if (state === SessionState.CONNECTED && sessionRef.current) {
+            reconnectAttemptsRef.current = 0;
+            if (keepAliveTimerRef.current) {
+              window.clearInterval(keepAliveTimerRef.current);
+            }
+            keepAliveTimerRef.current = window.setInterval(() => {
+              if (sessionRef.current) {
+                void sessionRef.current.keepAlive().catch((err) => {
+                  console.warn("keepAlive failed:", err);
+                });
+              }
+            }, 45000);
+          }
         });
 
         session.on(SessionEvent.SESSION_STREAM_READY, () => {
@@ -228,6 +256,26 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
           setIsListening(false);
           onStreamDisconnected?.(reason);
           setErrorMessage(`Stream disconnected: ${reason}`);
+          if (keepAliveTimerRef.current) {
+            window.clearInterval(keepAliveTimerRef.current);
+            keepAliveTimerRef.current = null;
+          }
+
+          // Auto-reconnect for unexpected transport drops only.
+          if (
+            !isSessionClosingRef.current &&
+            String(reason).includes("UNKNOWN") &&
+            reconnectAttemptsRef.current < 3
+          ) {
+            reconnectAttemptsRef.current += 1;
+            if (reconnectTimerRef.current) {
+              window.clearTimeout(reconnectTimerRef.current);
+            }
+            reconnectTimerRef.current = window.setTimeout(() => {
+              sessionRef.current = null;
+              void connectSession();
+            }, 1500 * reconnectAttemptsRef.current);
+          }
         });
 
         session.on(AgentEventsEnum.AVATAR_SPEAK_STARTED, () => {
@@ -344,6 +392,8 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
       return () => {
         if (silenceTimerRef.current) window.clearTimeout(silenceTimerRef.current);
         if (inactivityTimerRef.current) window.clearTimeout(inactivityTimerRef.current);
+        if (reconnectTimerRef.current) window.clearTimeout(reconnectTimerRef.current);
+        if (keepAliveTimerRef.current) window.clearInterval(keepAliveTimerRef.current);
         stopVoiceMode();
         void closeSession();
       };
@@ -352,17 +402,10 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
     }, []);
 
     const languageLabel = language === "hi" ? "Hindi" : "English";
-    const sdkLanguage = language === "hi" ? Language.hi : Language.en;
-
-    useEffect(() => {
-      // This keeps language intent explicit in UI state for lesson operators.
-      // Token generation receives this language value for avatar persona setup.
-      void sdkLanguage;
-    }, [sdkLanguage]);
 
     return (
-      <div className="space-y-4 p-4 border rounded-xl bg-card">
-        <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className={`h-full flex flex-col gap-3 p-3 md:p-4 border rounded-xl bg-card ${className || ""}`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 shrink-0">
           <div>
             <h3 className="text-lg font-semibold">AI Teacher Avatar</h3>
             <p className="text-sm text-muted-foreground">
@@ -397,63 +440,96 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
           </div>
         )}
 
-        <div className="relative w-full aspect-video overflow-hidden rounded-lg bg-black">
-          <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
-          <div className="absolute top-2 left-2 flex gap-2">
-            {isAvatarSpeaking && (
-              <span className="text-xs px-2 py-1 rounded bg-emerald-600 text-white">
-                Avatar speaking
-              </span>
-            )}
-            {isListening && (
-              <span className="text-xs px-2 py-1 rounded bg-indigo-600 text-white">
-                Listening to you
-              </span>
-            )}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 shrink-0">
+          <div className="relative w-full h-56 md:h-72 overflow-hidden rounded-lg bg-black">
+            <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" />
+            <div className="absolute top-2 left-2 flex gap-2">
+              {isAvatarSpeaking && (
+                <span className="text-xs px-2 py-1 rounded bg-emerald-600 text-white">
+                  Avatar speaking
+                </span>
+              )}
+              {isListening && (
+                <span className="text-xs px-2 py-1 rounded bg-indigo-600 text-white">
+                  Listening to you
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="h-56 md:h-72 rounded-lg border border-[#3d6651] bg-[#1d3d2e] text-emerald-50 p-3 overflow-y-auto">
+            <div className="text-xs uppercase tracking-wider opacity-90 mb-2">Board Notes</div>
+            <div className="whitespace-pre-wrap text-sm leading-6">
+              {boardText || "Ask a question and the tutor answer appears here on the board."}
+            </div>
           </div>
         </div>
 
-        {mode === "text" ? (
-          <form
-            className="space-y-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!textQuestion.trim() || isReplyPending) return;
-              void fetchReplyAndSpeak(textQuestion);
-            }}
-          >
-            <Textarea
-              placeholder="Ask the teacher in text mode..."
-              value={textQuestion}
-              onChange={(event) => setTextQuestion(event.target.value)}
-            />
-            <Button type="submit" disabled={!textQuestion.trim() || isReplyPending || !isConnected}>
-              {isReplyPending ? "Generating..." : "Ask the teacher"}
-            </Button>
-          </form>
-        ) : (
-          <div className="space-y-2">
-            <div className="flex gap-2">
-              {!isListening ? (
-                <Button onClick={() => void startVoiceMode()} disabled={!isConnected}>
-                  Start talking
-                </Button>
-              ) : (
-                <Button variant="destructive" onClick={stopVoiceMode}>
-                  Stop talking
-                </Button>
-              )}
-            </div>
-            <Input readOnly value={voiceTranscript} placeholder="Your transcript appears here..." />
+        <div className="min-h-0 flex-1 rounded-lg border bg-background/70 flex flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3 space-y-2">
+            {chatMessages.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Start chatting below. Replies will also be written on the board.
+              </p>
+            ) : (
+              chatMessages.map((message, idx) => (
+                <div
+                  key={`${message.role}-${idx}`}
+                  className={`max-w-[92%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap ${
+                    message.role === "user"
+                      ? "ml-auto bg-blue-600 text-white"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100"
+                  }`}
+                >
+                  {message.text}
+                </div>
+              ))
+            )}
           </div>
-        )}
 
-        {replyText && (
-          <div className="rounded-md border px-3 py-2 text-sm">
-            <strong>Latest teacher reply:</strong>
-            <div className="mt-1 whitespace-pre-wrap">{replyText}</div>
+          <div className="border-t p-3 space-y-2">
+            {mode === "text" ? (
+              <form
+                className="space-y-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (!textQuestion.trim() || isReplyPending) return;
+                  void fetchReplyAndSpeak(textQuestion);
+                  setTextQuestion("");
+                }}
+              >
+                <Textarea
+                  placeholder="Ask the teacher in text mode..."
+                  value={textQuestion}
+                  onChange={(event) => setTextQuestion(event.target.value)}
+                  className="min-h-[72px]"
+                />
+                <Button type="submit" disabled={!textQuestion.trim() || isReplyPending || !isConnected}>
+                  {isReplyPending ? "Generating..." : "Ask the teacher"}
+                </Button>
+              </form>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  {!isListening ? (
+                    <Button onClick={() => void startVoiceMode()} disabled={!isConnected}>
+                      Start talking
+                    </Button>
+                  ) : (
+                    <Button variant="destructive" onClick={stopVoiceMode}>
+                      Stop talking
+                    </Button>
+                  )}
+                </div>
+                <Input readOnly value={voiceTranscript} placeholder="Your transcript appears here..." />
+              </div>
+            )}
+            {replyText && (
+              <div className="text-xs text-muted-foreground">
+                Latest tutor reply is shown above and on the board.
+              </div>
+            )}
+            </div>
           </div>
-        )}
       </div>
     );
   },
