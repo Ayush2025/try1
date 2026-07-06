@@ -6,7 +6,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { LogLevel, SimliClient } from "simli-client/dist/client.js";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +16,14 @@ type InteractionMode = "text" | "voice";
 
 type GenerateReplyResponse = { replyText: string };
 type SimliTokenResponse = { token: string };
+
+type SimliClientLike = {
+  on: (event: string, callback: (...args: any[]) => void) => void;
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+  listenToMediastreamTrack: (track: MediaStreamTrack) => void;
+  ClearBuffer: () => void;
+};
 
 interface TeacherAvatarProps {
   faceId?: string;
@@ -51,7 +58,9 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
   ) {
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
-    const simliRef = useRef<SimliClient | null>(null);
+    const simliRef = useRef<SimliClientLike | null>(null);
+    const simliCtorRef = useRef<any>(null);
+    const simliLogLevelRef = useRef<any>(null);
     const recognitionRef = useRef<RecognitionLike | null>(null);
     const idleTimerRef = useRef<number | null>(null);
     const modeRef = useRef<InteractionMode>("text");
@@ -262,6 +271,12 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
         setStatus("connecting");
         setErrorMessage("");
 
+        if (!simliCtorRef.current) {
+          const mod = await import("simli-client/dist/client.js");
+          simliCtorRef.current = mod.SimliClient;
+          simliLogLevelRef.current = mod.LogLevel;
+        }
+
         const tokenRes = await apiRequest("POST", "/api/get-simli-token", {
           faceId,
         });
@@ -270,7 +285,9 @@ export const TeacherAvatar = forwardRef<TeacherAvatarRef, TeacherAvatarProps>(
           throw new Error("Could not obtain Simli session token");
         }
 
-        const simli = new SimliClient(
+        const SimliCtor = simliCtorRef.current;
+        const LogLevel = simliLogLevelRef.current;
+        const simli = new SimliCtor(
           tokenPayload.token,
           videoRef.current,
           audioRef.current,
