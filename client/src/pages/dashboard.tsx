@@ -26,7 +26,8 @@ import {
   Crown,
   HelpCircle,
   Sparkles,
-  Zap
+  Zap,
+  GraduationCap
 } from "lucide-react";
 import { Link } from "wouter";
 import { useTheme } from "@/components/ui/theme-provider";
@@ -42,6 +43,7 @@ import { RealTimeFeatures } from "@/components/realTimeFeatures";
 import { LiveDemo } from "@/components/liveDemo";
 import { ARManager } from "@/components/ar/ARManager";
 import EngagementDashboard from "@/components/analytics/engagementDashboard";
+import { AiCoursesSection } from "@/components/ai-courses/aiCoursesSection";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AdSenseAd } from "@/components/ads/AdSenseAd";
 import type { Tutor } from "@shared/schema";
@@ -284,6 +286,13 @@ export default function Dashboard() {
                 >
                   <BarChart3 className="h-3 w-3" />
                   <span className="hidden xs:inline">Analytics</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="ai-courses"
+                  className="px-3 py-2 rounded-full data-[state=active]:bg-emerald-500 data-[state=active]:text-white data-[state=active]:shadow-lg transition-all duration-200 font-medium text-xs whitespace-nowrap flex items-center gap-1"
+                >
+                  <GraduationCap className="h-3 w-3" />
+                  AI Courses
                 </TabsTrigger>
                 <TabsTrigger
                   value="features"
@@ -631,6 +640,12 @@ export default function Dashboard() {
                   </CardContent>
                 </Card>
               </div>
+            </main>
+          </TabsContent>
+
+          <TabsContent value="ai-courses" className="space-y-6">
+            <main className="p-6">
+              <AiCoursesSection isAdmin={(user as any)?.role === "admin"} />
             </main>
           </TabsContent>
 
