@@ -13,6 +13,7 @@ import { openaiService } from "./services/openai";
 import { fileProcessor } from "./services/fileProcessor";
 import { analyticsService } from "./services/analytics";
 import { seedOrUpdateBandA } from "./seed/seedBandA";
+import { seedOrUpdateBandB } from "./seed/seedBandB";
 import {
   insertTutorSchema,
   insertTutorContentSchema,
@@ -226,6 +227,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error seeding Band A AI course:", error);
       return res.status(500).json({ message: "Failed to seed Band A course" });
+    }
+  });
+
+  app.post("/api/admin/ai-courses/seed-band-b", isAuthenticated, async (req: any, res) => {
+    if (!ensureAdmin(req, res)) return;
+    try {
+      const seeded = await seedOrUpdateBandB(storage, req.user.id);
+      return res.json(seeded);
+    } catch (error) {
+      console.error("Error seeding Band B AI course:", error);
+      return res.status(500).json({ message: "Failed to seed Band B course" });
     }
   });
 

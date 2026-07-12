@@ -1,36 +1,6 @@
-export type SeedQuizQuestion = {
-  type: "mcq" | "short" | "scenario";
-  question: string;
-  options?: string[];
-  answer?: string;
-  answerKeywords?: string[];
-  explanation: string;
-};
+import { type SeedCourse, type SeedLesson } from "./types";
 
-export type SeedLesson = {
-  orderIndex: number;
-  slug: string;
-  title: string;
-  estimatedDurationMinutes: number;
-  tags: string[];
-  hook: string;
-  conceptExplanation: string;
-  workedExamples: Array<{ title: string; steps: string[]; summary: string }>;
-  activity: {
-    title: string;
-    materials: string[];
-    estimatedTimeMinutes: number;
-    steps: string[];
-    successCriteria: string[];
-    facilitationNotes: string[];
-  };
-  discussionPrompts: string[];
-  quiz: SeedQuizQuestion[];
-  extension: string;
-  realWorldConnection: string;
-};
-
-export const bandACourseSeed = {
+export const bandACourseSeed: SeedCourse = {
   band: "band-a",
   gradeRange: "Class 3-5",
   title: "AI Literacy Foundations (Class 3-5)",

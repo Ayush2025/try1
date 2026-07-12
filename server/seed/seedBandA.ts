@@ -1,7 +1,10 @@
 import { type IStorage } from "../storage";
 import { bandACourseSeed } from "./bandAContent";
+import { validateCourseLessons } from "./validateLesson";
 
 export async function seedOrUpdateBandA(storage: IStorage, creatorId: string) {
+  validateCourseLessons(bandACourseSeed.lessons, "band-a");
+
   const existingCourses = await storage.listAllAiCourses();
   const existingBandA = existingCourses.find(
     (course) => course.band === "band-a" && course.title === bandACourseSeed.title,

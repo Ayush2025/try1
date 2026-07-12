@@ -97,6 +97,7 @@ export function AiCoursesSection({ isAdmin }: { isAdmin: boolean }) {
   const [selectedLessonId, setSelectedLessonId] = useState<number | null>(null);
   const [conceptPage, setConceptPage] = useState(0);
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
 
   const [draftCourse, setDraftCourse] = useState<Partial<AiCourse>>({
     band: "band-a",
@@ -195,6 +196,23 @@ export function AiCoursesSection({ isAdmin }: { isAdmin: boolean }) {
       toast({ title: "Band A seeded", description: "Band A course and lessons are now available." });
     },
     onError: () => toast({ title: "Seed failed", description: "Could not seed Band A", variant: "destructive" }),
+  });
+
+  const seedBandBMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/admin/ai-courses/seed-band-b");
+      return response.json();
+    },
+    onSuccess: async (data) => {
+      await queryClient.invalidateQueries({ queryKey: ["/api/ai-courses"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-courses"] });
+      if (data?.id) {
+        setSelectedCourseId(data.id);
+        setSelectedAdminCourseId(data.id);
+      }
+      toast({ title: "Band B seeded", description: "Band B course and lessons are now available." });
+    },
+    onError: () => toast({ title: "Seed failed", description: "Could not seed Band B", variant: "destructive" }),
   });
 
   const saveCourseMutation = useMutation({
@@ -358,6 +376,7 @@ export function AiCoursesSection({ isAdmin }: { isAdmin: boolean }) {
                                 setSelectedLessonId(lesson.id);
                                 setConceptPage(0);
                                 setQuizAnswers({});
+                                  setQuizSubmitted(false);
                               }}
                             >
                               Learn
@@ -491,7 +510,10 @@ export function AiCoursesSection({ isAdmin }: { isAdmin: boolean }) {
                                       type="button"
                                       variant={quizAnswers[idx] === option ? "default" : "outline"}
                                       className="w-full justify-start"
-                                      onClick={() => setQuizAnswers((prev) => ({ ...prev, [idx]: option }))}
+                                      onClick={() => {
+                                        setQuizAnswers((prev) => ({ ...prev, [idx]: option }));
+                                        if (quizSubmitted) setQuizSubmitted(false);
+                                      }}
                                     >
                                       {option}
                                     </Button>
@@ -500,13 +522,16 @@ export function AiCoursesSection({ isAdmin }: { isAdmin: boolean }) {
                               ) : (
                                 <Textarea
                                   value={quizAnswers[idx] ?? ""}
-                                  onChange={(event) =>
-                                    setQuizAnswers((prev) => ({ ...prev, [idx]: event.target.value }))
-                                  }
+                                  onChange={(event) => {
+                                    setQuizAnswers((prev) => ({ ...prev, [idx]: event.target.value }));
+                                    if (quizSubmitted) setQuizSubmitted(false);
+                                  }}
                                   placeholder="Type your answer..."
                                 />
                               )}
-                              <p className="text-xs text-muted-foreground">Explanation: {question.explanation}</p>
+                              {quizSubmitted && (
+                                <p className="text-xs text-muted-foreground">Explanation: {question.explanation}</p>
+                              )}
                             </CardContent>
                           </Card>
                         ))}
@@ -514,6 +539,7 @@ export function AiCoursesSection({ isAdmin }: { isAdmin: boolean }) {
                           <Button
                             onClick={() => {
                               if (!selectedLesson || quizScore === null) return;
+                              setQuizSubmitted(true);
                               updateProgressMutation.mutate({
                                 lessonId: selectedLesson.id,
                                 completed: true,
@@ -569,6 +595,9 @@ export function AiCoursesSection({ isAdmin }: { isAdmin: boolean }) {
                 <div className="flex flex-wrap items-center gap-2">
                   <Button onClick={() => seedBandAMutation.mutate()} disabled={seedBandAMutation.isPending}>
                     {seedBandAMutation.isPending ? "Seeding..." : "Seed/Refresh Band A"}
+                  </Button>
+                  <Button onClick={() => seedBandBMutation.mutate()} disabled={seedBandBMutation.isPending}>
+                    {seedBandBMutation.isPending ? "Seeding..." : "Seed/Refresh Band B"}
                   </Button>
                 </div>
 
