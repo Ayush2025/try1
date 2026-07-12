@@ -5,6 +5,9 @@ import {
   chatSessions,
   chatMessages,
   tutorAnalytics,
+  aiCourses,
+  aiLessons,
+  aiLessonProgress,
   type User,
   type UpsertUser,
   type Tutor,
@@ -16,9 +19,15 @@ import {
   type ChatMessage,
   type InsertChatMessage,
   type TutorAnalytics,
+  type AiCourse,
+  type InsertAiCourse,
+  type AiLesson,
+  type InsertAiLesson,
+  type AiLessonProgress,
+  type InsertAiLessonProgress,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, count, avg, sql } from "drizzle-orm";
+import { eq, desc, and, count, avg, sql, asc } from "drizzle-orm";
 
 // Interface for storage operations
 export interface IStorage {
@@ -64,6 +73,24 @@ export interface IStorage {
   // Subscription limit checks
   checkTutorLimit(creatorId: string): Promise<{ canCreate: boolean; currentCount: number; limit: number }>;
   checkContentLimit(tutorId: number): Promise<{ canAdd: boolean; currentCount: number; limit: number }>;
+
+  // AI courses operations
+  listPublishedAiCourses(): Promise<AiCourse[]>;
+  listAllAiCourses(): Promise<AiCourse[]>;
+  getAiCourseById(courseId: number): Promise<AiCourse | undefined>;
+  getAiCourseWithLessons(courseId: number): Promise<(AiCourse & { lessons: AiLesson[] }) | undefined>;
+  createAiCourse(course: InsertAiCourse): Promise<AiCourse>;
+  updateAiCourse(courseId: number, updates: Partial<InsertAiCourse>): Promise<AiCourse>;
+  deleteAiCourse(courseId: number): Promise<void>;
+  createAiLesson(lesson: InsertAiLesson): Promise<AiLesson>;
+  updateAiLesson(lessonId: number, updates: Partial<InsertAiLesson>): Promise<AiLesson>;
+  deleteAiLesson(lessonId: number): Promise<void>;
+  listAiLessonsByCourse(courseId: number): Promise<AiLesson[]>;
+
+  // AI course progress operations
+  upsertAiLessonProgress(progress: InsertAiLessonProgress): Promise<AiLessonProgress>;
+  getAiLessonProgressForCourse(studentId: string, courseId: number): Promise<AiLessonProgress[]>;
+  getAiLessonProgressForStudent(studentId: string): Promise<AiLessonProgress[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -398,6 +425,140 @@ export class DatabaseStorage implements IStorage {
       currentCount,
       limit
     };
+  }
+
+  async listPublishedAiCourses(): Promise<AiCourse[]> {
+    return db
+      .select()
+      .from(aiCourses)
+      .where(eq(aiCourses.isPublished, true))
+      .orderBy(asc(aiCourses.band), asc(aiCourses.id));
+  }
+
+  async listAllAiCourses(): Promise<AiCourse[]> {
+    return db
+      .select()
+      .from(aiCourses)
+      .orderBy(asc(aiCourses.band), desc(aiCourses.updatedAt));
+  }
+
+  async getAiCourseById(courseId: number): Promise<AiCourse | undefined> {
+    const [course] = await db.select().from(aiCourses).where(eq(aiCourses.id, courseId));
+    return course;
+  }
+
+  async listAiLessonsByCourse(courseId: number): Promise<AiLesson[]> {
+    return db
+      .select()
+      .from(aiLessons)
+      .where(eq(aiLessons.courseId, courseId))
+      .orderBy(asc(aiLessons.orderIndex), asc(aiLessons.id));
+  }
+
+  async getAiCourseWithLessons(courseId: number): Promise<(AiCourse & { lessons: AiLesson[] }) | undefined> {
+    const course = await this.getAiCourseById(courseId);
+    if (!course) return undefined;
+    const lessons = await this.listAiLessonsByCourse(courseId);
+    return { ...course, lessons };
+  }
+
+  async createAiCourse(course: InsertAiCourse): Promise<AiCourse> {
+    const [created] = await db
+      .insert(aiCourses)
+      .values({
+        ...course,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return created;
+  }
+
+  async updateAiCourse(courseId: number, updates: Partial<InsertAiCourse>): Promise<AiCourse> {
+    const [updated] = await db
+      .update(aiCourses)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(aiCourses.id, courseId))
+      .returning();
+    return updated;
+  }
+
+  async deleteAiCourse(courseId: number): Promise<void> {
+    const lessons = await this.listAiLessonsByCourse(courseId);
+    for (const lesson of lessons) {
+      await db.delete(aiLessonProgress).where(eq(aiLessonProgress.lessonId, lesson.id));
+    }
+    await db.delete(aiLessons).where(eq(aiLessons.courseId, courseId));
+    await db.delete(aiLessonProgress).where(eq(aiLessonProgress.courseId, courseId));
+    await db.delete(aiCourses).where(eq(aiCourses.id, courseId));
+  }
+
+  async createAiLesson(lesson: InsertAiLesson): Promise<AiLesson> {
+    const [created] = await db
+      .insert(aiLessons)
+      .values({
+        ...lesson,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning();
+    return created;
+  }
+
+  async updateAiLesson(lessonId: number, updates: Partial<InsertAiLesson>): Promise<AiLesson> {
+    const [updated] = await db
+      .update(aiLessons)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      })
+      .where(eq(aiLessons.id, lessonId))
+      .returning();
+    return updated;
+  }
+
+  async deleteAiLesson(lessonId: number): Promise<void> {
+    await db.delete(aiLessonProgress).where(eq(aiLessonProgress.lessonId, lessonId));
+    await db.delete(aiLessons).where(eq(aiLessons.id, lessonId));
+  }
+
+  async upsertAiLessonProgress(progress: InsertAiLessonProgress): Promise<AiLessonProgress> {
+    const [updated] = await db
+      .insert(aiLessonProgress)
+      .values({
+        ...progress,
+        updatedAt: new Date(),
+      })
+      .onConflictDoUpdate({
+        target: [aiLessonProgress.studentId, aiLessonProgress.courseId, aiLessonProgress.lessonId],
+        set: {
+          completed: progress.completed,
+          quizScore: progress.quizScore,
+          completedAt: progress.completedAt,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return updated;
+  }
+
+  async getAiLessonProgressForCourse(studentId: string, courseId: number): Promise<AiLessonProgress[]> {
+    return db
+      .select()
+      .from(aiLessonProgress)
+      .where(and(eq(aiLessonProgress.studentId, studentId), eq(aiLessonProgress.courseId, courseId)))
+      .orderBy(asc(aiLessonProgress.lessonId));
+  }
+
+  async getAiLessonProgressForStudent(studentId: string): Promise<AiLessonProgress[]> {
+    return db
+      .select()
+      .from(aiLessonProgress)
+      .where(eq(aiLessonProgress.studentId, studentId))
+      .orderBy(desc(aiLessonProgress.updatedAt));
   }
 }
 

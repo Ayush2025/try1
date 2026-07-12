@@ -12,7 +12,15 @@ import { setupAuth, isAuthenticated } from "./auth";
 import { openaiService } from "./services/openai";
 import { fileProcessor } from "./services/fileProcessor";
 import { analyticsService } from "./services/analytics";
-import { insertTutorSchema, insertTutorContentSchema, insertChatSessionSchema, insertChatMessageSchema } from "@shared/schema";
+import {
+  insertTutorSchema,
+  insertTutorContentSchema,
+  insertChatSessionSchema,
+  insertChatMessageSchema,
+  insertAiCourseSchema,
+  insertAiLessonSchema,
+  insertAiLessonProgressSchema,
+} from "@shared/schema";
 import { jsPDF } from "jspdf";
 
 // Initialize Razorpay only when credentials are present (optional for local dev)
@@ -41,6 +49,15 @@ const upload = multer({
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  const isAdminRequest = (req: any) => req?.user?.role === "admin";
+  const ensureAdmin = (req: any, res: any) => {
+    if (!isAdminRequest(req)) {
+      res.status(403).json({ message: "Admin access required" });
+      return false;
+    }
+    return true;
+  };
+
   // Unity WebGL build - serve at /unity
   const unityPath = path.resolve(import.meta.dirname, "..", "client", "Unity");
   app.get(["/unity", "/unity/"], (_req, res) =>
@@ -71,6 +88,232 @@ export async function registerRoutes(app: Express): Promise<Server> {
   await setupAuth(app);
 
   // Authentication routes are now handled in setupAuth
+
+  // AI Courses (student/public)
+  app.get("/api/ai-courses", async (req: any, res) => {
+    try {
+      const courses = await storage.listPublishedAiCourses();
+      return res.json(courses);
+    } catch (error) {
+      console.error("Error fetching AI courses:", error);
+      return res.status(500).json({ message: "Failed to fetch AI courses" });
+    }
+  });
+
+  app.get("/api/ai-courses/:courseId", async (req: any, res) => {
+    try {
+      const courseId = Number(req.params.courseId);
+      if (!Number.isFinite(courseId)) {
+        return res.status(400).json({ message: "Invalid course id" });
+      }
+      const courseWithLessons = await storage.getAiCourseWithLessons(courseId);
+      if (!courseWithLessons) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+      if (!courseWithLessons.isPublished) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+      return res.json(courseWithLessons);
+    } catch (error) {
+      console.error("Error fetching AI course:", error);
+      return res.status(500).json({ message: "Failed to fetch AI course" });
+    }
+  });
+
+  app.get("/api/admin/ai-courses/:courseId", isAuthenticated, async (req: any, res) => {
+    if (!ensureAdmin(req, res)) return;
+    try {
+      const courseId = Number(req.params.courseId);
+      if (!Number.isFinite(courseId)) {
+        return res.status(400).json({ message: "Invalid course id" });
+      }
+      const courseWithLessons = await storage.getAiCourseWithLessons(courseId);
+      if (!courseWithLessons) {
+        return res.status(404).json({ message: "Course not found" });
+      }
+      return res.json(courseWithLessons);
+    } catch (error) {
+      console.error("Error fetching admin AI course:", error);
+      return res.status(500).json({ message: "Failed to fetch AI course" });
+    }
+  });
+
+  // AI course progress (authenticated students)
+  app.get("/api/ai-courses/progress/me", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.id;
+      const progress = await storage.getAiLessonProgressForStudent(studentId);
+      return res.json(progress);
+    } catch (error) {
+      console.error("Error fetching student AI progress:", error);
+      return res.status(500).json({ message: "Failed to fetch AI progress" });
+    }
+  });
+
+  app.get("/api/ai-courses/:courseId/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.id;
+      const courseId = Number(req.params.courseId);
+      if (!Number.isFinite(courseId)) {
+        return res.status(400).json({ message: "Invalid course id" });
+      }
+      const progress = await storage.getAiLessonProgressForCourse(studentId, courseId);
+      return res.json(progress);
+    } catch (error) {
+      console.error("Error fetching course progress:", error);
+      return res.status(500).json({ message: "Failed to fetch course progress" });
+    }
+  });
+
+  app.post("/api/ai-courses/:courseId/lessons/:lessonId/progress", isAuthenticated, async (req: any, res) => {
+    try {
+      const studentId = req.user.id;
+      const courseId = Number(req.params.courseId);
+      const lessonId = Number(req.params.lessonId);
+      if (!Number.isFinite(courseId) || !Number.isFinite(lessonId)) {
+        return res.status(400).json({ message: "Invalid course or lesson id" });
+      }
+
+      const payload = insertAiLessonProgressSchema.parse({
+        studentId,
+        courseId,
+        lessonId,
+        completed: Boolean(req.body?.completed),
+        quizScore: String(req.body?.quizScore ?? "0"),
+        ...(req.body?.completed ? { completedAt: new Date() } : {}),
+      });
+      const progress = await storage.upsertAiLessonProgress(payload);
+      return res.json(progress);
+    } catch (error) {
+      console.error("Error updating lesson progress:", error);
+      return res.status(400).json({ message: "Failed to update lesson progress" });
+    }
+  });
+
+  // AI Courses admin CRUD
+  app.get("/api/admin/ai-courses", isAuthenticated, async (req: any, res) => {
+    if (!ensureAdmin(req, res)) return;
+    try {
+      const courses = await storage.listAllAiCourses();
+      return res.json(courses);
+    } catch (error) {
+      console.error("Error fetching admin AI courses:", error);
+      return res.status(500).json({ message: "Failed to fetch AI courses" });
+    }
+  });
+
+  app.post("/api/admin/ai-courses", isAuthenticated, async (req: any, res) => {
+    if (!ensureAdmin(req, res)) return;
+    try {
+      const payload = insertAiCourseSchema.parse({
+        ...req.body,
+        createdBy: req.user.id,
+      });
+      const course = await storage.createAiCourse(payload);
+      return res.json(course);
+    } catch (error) {
+      console.error("Error creating AI course:", error);
+      return res.status(400).json({ message: "Failed to create AI course" });
+    }
+  });
+
+  app.put("/api/admin/ai-courses/:courseId", isAuthenticated, async (req: any, res) => {
+    if (!ensureAdmin(req, res)) return;
+    try {
+      const courseId = Number(req.params.courseId);
+      if (!Number.isFinite(courseId)) {
+        return res.status(400).json({ message: "Invalid course id" });
+      }
+      const updates = insertAiCourseSchema.partial().parse(req.body);
+      const updated = await storage.updateAiCourse(courseId, updates);
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating AI course:", error);
+      return res.status(400).json({ message: "Failed to update AI course" });
+    }
+  });
+
+  app.post("/api/admin/ai-courses/:courseId/publish", isAuthenticated, async (req: any, res) => {
+    if (!ensureAdmin(req, res)) return;
+    try {
+      const courseId = Number(req.params.courseId);
+      if (!Number.isFinite(courseId)) {
+        return res.status(400).json({ message: "Invalid course id" });
+      }
+      const updated = await storage.updateAiCourse(courseId, {
+        isPublished: Boolean(req.body?.isPublished),
+      });
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating AI course publish status:", error);
+      return res.status(400).json({ message: "Failed to update publish status" });
+    }
+  });
+
+  app.delete("/api/admin/ai-courses/:courseId", isAuthenticated, async (req: any, res) => {
+    if (!ensureAdmin(req, res)) return;
+    try {
+      const courseId = Number(req.params.courseId);
+      if (!Number.isFinite(courseId)) {
+        return res.status(400).json({ message: "Invalid course id" });
+      }
+      await storage.deleteAiCourse(courseId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting AI course:", error);
+      return res.status(500).json({ message: "Failed to delete AI course" });
+    }
+  });
+
+  app.post("/api/admin/ai-courses/:courseId/lessons", isAuthenticated, async (req: any, res) => {
+    if (!ensureAdmin(req, res)) return;
+    try {
+      const courseId = Number(req.params.courseId);
+      if (!Number.isFinite(courseId)) {
+        return res.status(400).json({ message: "Invalid course id" });
+      }
+      const payload = insertAiLessonSchema.parse({
+        ...req.body,
+        courseId,
+      });
+      const lesson = await storage.createAiLesson(payload);
+      return res.json(lesson);
+    } catch (error) {
+      console.error("Error creating AI lesson:", error);
+      return res.status(400).json({ message: "Failed to create AI lesson" });
+    }
+  });
+
+  app.put("/api/admin/ai-lessons/:lessonId", isAuthenticated, async (req: any, res) => {
+    if (!ensureAdmin(req, res)) return;
+    try {
+      const lessonId = Number(req.params.lessonId);
+      if (!Number.isFinite(lessonId)) {
+        return res.status(400).json({ message: "Invalid lesson id" });
+      }
+      const updates = insertAiLessonSchema.partial().parse(req.body);
+      const updated = await storage.updateAiLesson(lessonId, updates);
+      return res.json(updated);
+    } catch (error) {
+      console.error("Error updating AI lesson:", error);
+      return res.status(400).json({ message: "Failed to update AI lesson" });
+    }
+  });
+
+  app.delete("/api/admin/ai-lessons/:lessonId", isAuthenticated, async (req: any, res) => {
+    if (!ensureAdmin(req, res)) return;
+    try {
+      const lessonId = Number(req.params.lessonId);
+      if (!Number.isFinite(lessonId)) {
+        return res.status(400).json({ message: "Invalid lesson id" });
+      }
+      await storage.deleteAiLesson(lessonId);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting AI lesson:", error);
+      return res.status(500).json({ message: "Failed to delete AI lesson" });
+    }
+  });
 
   // Simli session token endpoint (server-side only).
   // Never expose SIMLI_API_KEY to the browser.
